@@ -1,29 +1,19 @@
-# Node & Capacitor Dependencies
+# Dependencies
 node_modules/
-dist/
 server/node_modules/
 
-# Environment Variables & Keys
+# Build outputs
+dist/
+dist-ssr/
+
+# Local & Secret Environment Files
 .env
 .env.local
-server/.env
-local.properties
+.env.*.local
+android/app/google-services.json
 
-# Android Gradle & Build Outputs
-.gradle/
-build/
-app/build/
-android/.gradle/
-android/build/
-android/app/build/
-android/local.properties
-*.apk
-*.aar
-
-# IDE & Editor Files
-.idea/
-*.iml
+# IDE / OS
 .vscode/
-*.swp
+.idea/
 .DS_Store
-Thumbs.db
+*.log

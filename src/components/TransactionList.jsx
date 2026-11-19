@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Download, Trash2, ArrowUpRight, ArrowDownLeft, Coffee, ShoppingBag, CreditCard, Music, Zap } from 'lucide-react';
+import { Search, Download, Trash2, Coffee, ShoppingBag, CreditCard, Music } from 'lucide-react';
 import { useFinance } from '../context/FinanceContext';
 import { formatRupiah, formatTanggal } from '../utils/formatters';
 
@@ -14,13 +14,14 @@ export const TransactionList = () => {
   const { transactions, deleteTransaction } = useFinance();
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [dateFilter, setDateFilter] = useState('all'); // 'all' | 'today' | 'week' | 'month'
+  const [dateFilter, setDateFilter] = useState('all');
 
   const filteredTransactions = transactions.filter((t) => {
-    const matchesSearch = 
-      (t.recipientMerchant || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (t.notes || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (t.categoryName || '').toLowerCase().includes(searchQuery.toLowerCase());
+    const label = (t.merchant || t.recipientMerchant || '').toLowerCase();
+    const bucket = (t.bucketName || t.categoryName || '').toLowerCase();
+    const notes = (t.notes || '').toLowerCase();
+    const q = searchQuery.toLowerCase();
+    const matchesSearch = label.includes(q) || bucket.includes(q) || notes.includes(q);
 
     let matchesDate = true;
     const txDate = new Date(t.transactionDate);
@@ -41,43 +42,39 @@ export const TransactionList = () => {
   const handleExportCSV = () => {
     if (transactions.length === 0) return;
 
-    const headers = ['Tanggal', 'Tipe', 'Nominal', 'Kategori', 'Dompet', 'Penerima/Merchant', 'Catatan'];
+    const headers = ['Tanggal', 'Tipe', 'Nominal', 'Pos Anggaran', 'Dompet', 'Merchant', 'Catatan'];
     const rows = transactions.map((t) => [
       `"${formatTanggal(t.transactionDate)}"`,
       `"${t.type === 'income' ? 'Pemasukan' : 'Pengeluaran'}"`,
       t.amount,
-      `"${t.categoryName || ''}"`,
+      `"${t.bucketName || t.categoryName || ''}"`,
       `"${t.walletName || ''}"`,
-      `"${t.recipientMerchant || ''}"`,
+      `"${t.merchant || t.recipientMerchant || ''}"`,
       `"${t.notes || ''}"`
     ]);
 
     const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
-    const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `Laporan_Keuangan_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.setAttribute('href', encodeURI(csvContent));
+    link.setAttribute('download', `Sakukurata_${new Date().toISOString().slice(0, 10)}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
 
   return (
-    <div className="space-y-4 mb-6">
-      
-      {/* Header & Export */}
+    <div className="space-y-3.5 mb-6">
       <div className="flex items-center justify-between px-1">
-        <h3 className="font-extrabold text-white text-lg tracking-tight">Transactions</h3>
+        <h3 className="font-extrabold text-white text-base tracking-tight">Riwayat Transaksi</h3>
         <button
           onClick={handleExportCSV}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#1e2229] hover:bg-[#282d36] text-slate-300 text-xs font-bold border border-white/5 transition-all"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#1e2229] hover:bg-[#282d36] text-slate-300 text-xs font-bold border border-white/5"
         >
           <Download className="w-3.5 h-3.5 text-[#8ee4af]" /> CSV
         </button>
       </div>
 
-      {/* Date Filter Quick Buttons */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+      <div className="flex items-center gap-2 overflow-x-auto pb-1">
         {[
           { key: 'all', label: 'Semua' },
           { key: 'today', label: 'Hari Ini' },
@@ -98,55 +95,57 @@ export const TransactionList = () => {
         ))}
       </div>
 
-      {/* Search Input */}
       <div className="relative">
         <Search className="w-4 h-4 absolute left-3.5 top-3 text-slate-500" />
         <input
           type="text"
-          placeholder="Cari transaksi..."
+          placeholder="Cari merchant, pos anggaran..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="w-full bg-[#16191f] border border-white/5 text-white rounded-2xl pl-10 pr-4 py-2.5 text-xs focus:outline-none focus:border-[#8ee4af]"
         />
       </div>
 
-      {/* Transactions List (Screen 3 Layout) */}
       <div className="space-y-2.5">
         {filteredTransactions.length === 0 ? (
-          <div className="text-center py-10 text-slate-500 text-xs font-medium dark-card rounded-[24px]">
+          <div className="text-center py-8 text-slate-500 text-xs font-medium dark-card rounded-[24px]">
             Belum ada transaksi.
           </div>
         ) : (
           filteredTransactions.map((tx, idx) => {
             const styleObj = ICON_PASTELS[idx % ICON_PASTELS.length];
             const IconComponent = styleObj.icon;
+            const title = tx.merchant || tx.recipientMerchant || 'Transaksi';
+            const bucketLabel = tx.bucketName || tx.categoryName || '';
 
             return (
               <div
                 key={tx.id}
-                className="dark-card p-4 rounded-[24px] flex items-center justify-between gap-3 hover:bg-[#1a1e24] transition-all group"
+                className="dark-card p-3.5 rounded-[22px] flex items-center justify-between gap-3 hover:bg-[#1a1e24] transition-all group"
               >
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className={`w-11 h-11 rounded-full ${styleObj.bg} ${styleObj.text} flex items-center justify-center flex-shrink-0 font-bold`}>
-                    <IconComponent className="w-5 h-5" />
+                  <div className={`w-10 h-10 rounded-full ${styleObj.bg} ${styleObj.text} flex items-center justify-center flex-shrink-0`}>
+                    <IconComponent className="w-4 h-4" />
                   </div>
 
                   <div className="min-w-0">
-                    <h4 className="font-bold text-white text-sm truncate">{tx.recipientMerchant || 'Transaksi'}</h4>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      <span className="text-[11px] font-semibold text-slate-400">
-                        {formatTanggal(tx.transactionDate)}
-                      </span>
+                    <h4 className="font-bold text-white text-sm truncate">{title}</h4>
+                    <div className="flex items-center gap-1.5 mt-0.5 text-[10px] font-semibold text-slate-400">
+                      {bucketLabel && <span className="text-emerald-400/90 truncate">{bucketLabel}</span>}
+                      <span>•</span>
+                      <span>{formatTanggal(tx.transactionDate)}</span>
                     </div>
                   </div>
                 </div>
 
-                {/* Amount & Delete */}
-                <div className="flex items-center gap-3 flex-shrink-0">
-                  <span className={`text-sm font-extrabold ${
-                    tx.type === 'income' ? 'text-[#8ee4af]' : 'text-[#ffaaa5]'
-                  }`}>
-                    {tx.type === 'income' ? '+' : '-'}{formatRupiah(tx.amount)}
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <span
+                    className={`text-xs font-extrabold ${
+                      tx.type === 'income' ? 'text-[#8ee4af]' : 'text-[#ffaaa5]'
+                    }`}
+                  >
+                    {tx.type === 'income' ? '+' : '-'}
+                    {formatRupiah(tx.amount)}
                   </span>
 
                   <button
@@ -157,13 +156,11 @@ export const TransactionList = () => {
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
-
               </div>
             );
           })
         )}
       </div>
-
     </div>
   );
 };

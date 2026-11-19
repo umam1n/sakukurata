@@ -1,0 +1,24 @@
+{
+  "_comment": "Download your real google-services.json from Firebase Console -> Project Settings -> Android App (package: com.financialapp.manager) and save it as android/app/google-services.json",
+  "project_info": {
+    "project_number": "000000000000",
+    "project_id": "your-firebase-project-id",
+    "storage_bucket": "your-firebase-project-id.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:000000000000:android:0000000000000000000000",
+        "android_client_info": {
+          "package_name": "com.financialapp.manager"
+        }
+      },
+      "api_key": [
+        {
+          "current_key": "YOUR_ANDROID_FIREBASE_API_KEY"
+        }
+      ]
+    }
+  ],
+  "configuration_version": "1"
+}
