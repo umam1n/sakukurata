@@ -19,8 +19,14 @@ export const TransactionFormModal = ({ isOpen, onClose, initialCategoryId }) => 
   const [autoTag, setAutoTag] = useState('');
 
   useEffect(() => {
-    if (categories.length > 0) setBucketId(initialCategoryId || categories[0].id);
-    if (wallets.length > 0) setWalletId(wallets[0].id);
+    const defaultMatch = autoAssignBucketAndWallet({
+      merchant: '',
+      buckets: categories,
+      wallets,
+      defaultToFood: true
+    });
+    if (categories.length > 0) setBucketId(initialCategoryId || defaultMatch.bucketId || categories[0].id);
+    if (wallets.length > 0) setWalletId(defaultMatch.walletId || wallets[0].id);
     setManualBucketOverride(Boolean(initialCategoryId));
     setManualWalletOverride(false);
     setAutoTag('');
@@ -35,15 +41,12 @@ export const TransactionFormModal = ({ isOpen, onClose, initialCategoryId }) => 
     const match = autoAssignBucketAndWallet({
       merchant: val,
       buckets: categories,
-      wallets
+      wallets,
+      defaultToFood: true
     });
-    if (match.intentLabel) {
-      setAutoTag(match.intentLabel);
-      if (!manualBucketOverride && match.bucketId) setBucketId(match.bucketId);
-      if (!manualWalletOverride && match.walletId) setWalletId(match.walletId);
-    } else {
-      setAutoTag('');
-    }
+    if (!manualBucketOverride && match.bucketId) setBucketId(match.bucketId);
+    if (!manualWalletOverride && match.walletId) setWalletId(match.walletId);
+    setAutoTag(match.isDefaultFallback ? '' : (match.intentLabel || ''));
   };
 
   if (!isOpen) return null;

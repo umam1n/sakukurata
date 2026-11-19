@@ -155,17 +155,20 @@ export function autoAssignBucketAndWallet({
   rawText = '',
   detectedWalletName = '',
   buckets = [],
-  wallets = []
+  wallets = [],
+  defaultToFood = true
 }) {
   const detected = detectSpendingIntent(merchant, rawText);
+  const foodRule = SPENDING_INTENT_RULES[0]; // Food & Dining is the most frequent everyday expense
+  const activeRule = detected?.rule || (defaultToFood ? foodRule : null);
 
   let matchedBucket = null;
   let matchedWallet = null;
   let walletMatchReason = '';
 
-  if (detected) {
+  if (activeRule) {
     // 1. Find best matching Budget Bucket by alias priority
-    for (const alias of detected.rule.targetBucketAliases) {
+    for (const alias of activeRule.targetBucketAliases) {
       const found = buckets.find((b) => (b.name || '').toLowerCase().includes(alias.toLowerCase()));
       if (found) {
         matchedBucket = found;
@@ -174,7 +177,7 @@ export function autoAssignBucketAndWallet({
     }
 
     // 2. Check if user has a purpose-specific Wallet (e.g. "Transportation", "Eating Wallet", "Outgoing")
-    for (const alias of detected.rule.targetWalletAliases) {
+    for (const alias of activeRule.targetWalletAliases) {
       const found = wallets.find((w) => (w.name || '').toLowerCase().includes(alias.toLowerCase()));
       if (found) {
         matchedWallet = found;
@@ -197,8 +200,9 @@ export function autoAssignBucketAndWallet({
   }
 
   return {
-    intent: detected?.intent || null,
-    intentLabel: detected?.label || null,
+    intent: detected?.intent || (defaultToFood ? 'food' : null),
+    intentLabel: detected?.label || (defaultToFood ? 'Food & Dining (Default)' : null),
+    isDefaultFallback: !detected && defaultToFood,
     matchedKeyword: detected?.matchedKeyword || null,
     bucketId: matchedBucket?.id || buckets[0]?.id || '',
     bucketName: matchedBucket?.name || buckets[0]?.name || '',
