@@ -99,6 +99,18 @@ body {
   border-color: var(--color-accent);
 }
 
+/* Remove bulky native number input up/down spinners globally */
+input[type='number']::-webkit-outer-spin-button,
+input[type='number']::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type='number'] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
 .y-btn-accent {
   background: var(--color-accent);
   color: #09090b;

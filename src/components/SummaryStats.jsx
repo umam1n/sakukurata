@@ -1,16 +1,18 @@
 import React, { useState, useMemo } from 'react';
 import { Edit2, Check } from 'lucide-react';
 import { useFinance } from '../context/FinanceContext';
-import { formatRupiah } from '../utils/formatters';
+import { formatRupiah, parseRupiahInput } from '../utils/formatters';
 
 export const SummaryStats = ({ onViewAll, compact = false }) => {
   const { baseSalary, setBaseSalary, transactions } = useFinance();
 
   const [isEditingSalary, setIsEditingSalary] = useState(false);
-  const [salaryInput, setSalaryInput] = useState(String(baseSalary || 0));
+  const [salaryInput, setSalaryInput] = useState(
+    baseSalary ? new Intl.NumberFormat('id-ID').format(baseSalary) : ''
+  );
 
   const handleSaveSalary = () => {
-    setBaseSalary(Number(salaryInput) || 0);
+    setBaseSalary(parseRupiahInput(salaryInput));
     setIsEditingSalary(false);
   };
 
@@ -55,20 +57,28 @@ export const SummaryStats = ({ onViewAll, compact = false }) => {
             isEditingSalary ? (
               <div className="flex items-center gap-1">
                 <input
-                  type="number"
+                  type="text"
+                  inputMode="numeric"
                   value={salaryInput}
-                  onChange={(e) => setSalaryInput(e.target.value)}
-                  className="w-28 y-input px-2 py-1 text-xs font-bold"
+                  onChange={(e) => {
+                    const num = parseRupiahInput(e.target.value);
+                    setSalaryInput(num > 0 ? new Intl.NumberFormat('id-ID').format(num) : '');
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleSaveSalary();
+                    if (e.key === 'Escape') setIsEditingSalary(false);
+                  }}
+                  className="w-28 y-input px-2.5 py-1 text-xs font-bold text-right"
                   autoFocus
                 />
-                <button onClick={handleSaveSalary} className="p-1.5 rounded-md y-btn-accent">
+                <button onClick={handleSaveSalary} className="p-1.5 rounded-md y-btn-accent" title="Save Base Salary">
                   <Check className="w-3.5 h-3.5" />
                 </button>
               </div>
             ) : (
               <button
                 onClick={() => {
-                  setSalaryInput(String(baseSalary || 0));
+                  setSalaryInput(baseSalary ? new Intl.NumberFormat('id-ID').format(baseSalary) : '');
                   setIsEditingSalary(true);
                 }}
                 className="px-2.5 py-1 rounded-md text-[11px] font-semibold flex items-center gap-1 text-muted hover:text-primary"
