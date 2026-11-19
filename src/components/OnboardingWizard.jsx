@@ -1,12 +1,10 @@
-import React, { useState } from 'react';
-import { ArrowRight, ArrowLeft, Check, Sparkles, Wallet, Sliders, User, Plus } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { ArrowRight, ArrowLeft, Check, Sparkles, Wallet, Sliders, User, Plus, Search } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useFinance } from '../context/FinanceContext';
-import {
-  BUDGET_TEMPLATES,
-  STARTER_WALLET_SUGGESTIONS,
-  STARTER_QUICK_ACTIONS
-} from '../utils/templates';
+import { BUDGET_TEMPLATES, STARTER_QUICK_ACTIONS } from '../utils/templates';
+import { INDONESIAN_INSTITUTIONS } from '../utils/indonesianBanks';
+import { BankLogo } from './BankLogo';
 import { parseRupiahInput } from '../utils/formatters';
 
 export const OnboardingWizard = () => {
@@ -20,24 +18,37 @@ export const OnboardingWizard = () => {
   const [salaryDisplay, setSalaryDisplay] = useState('5.000.000');
   const [paydayDate, setPaydayDate] = useState(25);
   const [selectedTemplateId, setSelectedTemplateId] = useState('balanced');
+
+  const [walletSearch, setWalletSearch] = useState('');
+  const [walletFilter, setWalletFilter] = useState('all'); // 'all' | 'bank' | 'digital_bank' | 'syariah' | 'ewallet'
   const [selectedWallets, setSelectedWallets] = useState([
-    { name: 'Bank BCA', type: 'bank', color: '#005caa', balance: 0 },
-    { name: 'Cash Wallet', type: 'cash', color: '#34d399', balance: 0 }
+    { name: 'Bank BCA', type: 'bank', color: '#005CAA', balance: 0 },
+    { name: 'Cash Wallet', type: 'cash', color: '#10B981', balance: 0 }
   ]);
   const [customWalletName, setCustomWalletName] = useState('');
+
+  const filteredInstitutions = useMemo(() => {
+    const q = walletSearch.trim().toLowerCase();
+    return INDONESIAN_INSTITUTIONS.filter((inst) => {
+      const matchesType = walletFilter === 'all' || inst.type === walletFilter;
+      const matchesSearch = !q || inst.name.toLowerCase().includes(q) || inst.short.toLowerCase().includes(q);
+      return matchesType && matchesSearch;
+    });
+  }, [walletSearch, walletFilter]);
 
   const formatThousands = (raw) => {
     const num = parseRupiahInput(raw);
     return num > 0 ? new Intl.NumberFormat('id-ID').format(num) : '';
   };
 
-  const toggleWalletSuggestion = (suggestion) => {
-    const exists = selectedWallets.some((w) => w.name === suggestion.name);
+  const toggleWalletSuggestion = (inst) => {
+    const exists = selectedWallets.some((w) => w.name === inst.name);
     if (exists) {
       if (selectedWallets.length <= 1) return;
-      setSelectedWallets((prev) => prev.filter((w) => w.name !== suggestion.name));
+      setSelectedWallets((prev) => prev.filter((w) => w.name !== inst.name));
     } else {
-      setSelectedWallets((prev) => [...prev, { ...suggestion, balance: 0 }]);
+      const mappedType = inst.type === 'digital_bank' || inst.type === 'syariah' ? 'bank' : inst.type;
+      setSelectedWallets((prev) => [...prev, { name: inst.name, type: mappedType, color: inst.color, balance: 0 }]);
     }
   };
 
@@ -77,8 +88,7 @@ export const OnboardingWizard = () => {
       className="min-h-screen w-screen flex items-center justify-center p-4"
       style={{ background: 'var(--bg)', color: 'var(--text)' }}
     >
-      <div className="w-full max-w-xl y-card p-6 space-y-5">
-        {/* Progress */}
+      <div className="w-full max-w-2xl y-card p-6 space-y-5">
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold uppercase tracking-wider text-accent">
@@ -104,7 +114,6 @@ export const OnboardingWizard = () => {
           </div>
         </div>
 
-        {/* Step 1 */}
         {step === 1 && (
           <div className="space-y-4">
             <div className="flex items-center gap-3">
@@ -163,7 +172,6 @@ export const OnboardingWizard = () => {
           </div>
         )}
 
-        {/* Step 2 */}
         {step === 2 && (
           <div className="space-y-4">
             <div className="flex items-center gap-3">
@@ -207,36 +215,70 @@ export const OnboardingWizard = () => {
           </div>
         )}
 
-        {/* Step 3 */}
         {step === 3 && (
-          <div className="space-y-4">
+          <div className="space-y-3.5">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-lg y-pill-accent flex items-center justify-center">
                 <Wallet className="w-4 h-4" />
               </div>
               <div>
-                <h2 className="text-lg font-extrabold tracking-tight">Select Your Wallets</h2>
-                <p className="text-xs text-muted">Choose the banks, e-wallets, or cash accounts you actively use.</p>
+                <h2 className="text-lg font-extrabold tracking-tight">Select Your Indonesian Banks & Wallets</h2>
+                <p className="text-xs text-muted">Search across 40+ Indonesian banks, digital banks, Syariah & e-wallets.</p>
               </div>
             </div>
 
-            <div className="flex flex-wrap gap-1.5">
-              {STARTER_WALLET_SUGGESTIONS.map((w) => {
-                const selected = selectedWallets.some((sw) => sw.name === w.name);
+            {/* Search + Category Pills */}
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="relative flex-1 min-w-[180px]">
+                <Search className="w-3.5 h-3.5 text-muted absolute left-2.5 top-2.5" />
+                <input
+                  type="text"
+                  placeholder="Search BCA, Mandiri, Jago, BSI, SeaBank, GoPay..."
+                  value={walletSearch}
+                  onChange={(e) => setWalletSearch(e.target.value)}
+                  className="w-full y-input pl-8 pr-3 py-1.5 text-xs"
+                />
+              </div>
+              <div className="flex gap-1">
+                {[
+                  { id: 'all', label: 'All' },
+                  { id: 'bank', label: 'Bank' },
+                  { id: 'digital_bank', label: 'Digital' },
+                  { id: 'syariah', label: 'Syariah' },
+                  { id: 'ewallet', label: 'E-Wallet' }
+                ].map((f) => (
+                  <button
+                    key={f.id}
+                    type="button"
+                    onClick={() => setWalletFilter(f.id)}
+                    className={`px-2 py-1 rounded-md text-[10px] font-bold ${
+                      walletFilter === f.id ? 'y-pill-accent' : 'text-muted'
+                    }`}
+                    style={walletFilter !== f.id ? { background: 'var(--bg-2)', border: '1px solid var(--border)' } : undefined}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Bank Grid with SVG Emblems */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 max-h-44 overflow-y-auto pr-1">
+              {filteredInstitutions.map((inst) => {
+                const selected = selectedWallets.some((sw) => sw.name === inst.name);
                 return (
                   <button
-                    key={w.name}
+                    key={inst.id}
                     type="button"
-                    onClick={() => toggleWalletSuggestion(w)}
-                    className="px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all"
+                    onClick={() => toggleWalletSuggestion(inst)}
+                    className="p-2 rounded-lg flex items-center gap-2 text-left transition-all"
                     style={{
                       background: selected ? 'rgba(var(--color-accent-rgb), 0.14)' : 'var(--bg-2)',
-                      border: `1px solid ${selected ? 'var(--color-accent)' : 'var(--border)'}`,
-                      color: selected ? 'var(--color-accent)' : 'var(--text)'
+                      border: `1px solid ${selected ? 'var(--color-accent)' : 'var(--border)'}`
                     }}
                   >
-                    <span className="w-2 h-2 rounded-full" style={{ backgroundColor: w.color }} />
-                    {w.name}
+                    <BankLogo institutionId={inst.id} size={26} />
+                    <span className="text-[11px] font-semibold truncate">{inst.name}</span>
                   </button>
                 );
               })}
@@ -245,30 +287,34 @@ export const OnboardingWizard = () => {
             <div className="flex gap-2">
               <input
                 type="text"
-                placeholder="Add another bank or e-wallet..."
+                placeholder="Or add a custom wallet name..."
                 value={customWalletName}
                 onChange={(e) => setCustomWalletName(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddCustomWallet())}
-                className="flex-1 y-input px-3 py-2 text-xs"
+                className="flex-1 y-input px-3 py-1.5 text-xs"
               />
               <button
                 type="button"
                 onClick={handleAddCustomWallet}
-                className="px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-1"
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1"
                 style={{ background: 'var(--bg-3)', border: '1px solid var(--border)' }}
               >
                 <Plus className="w-3.5 h-3.5" /> Add
               </button>
             </div>
 
-            <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+            {/* Optional Balances */}
+            <div className="space-y-1.5 max-h-32 overflow-y-auto pr-1">
               {selectedWallets.map((w) => (
                 <div
                   key={w.name}
-                  className="px-3 py-2 rounded-lg flex items-center justify-between gap-3"
+                  className="px-3 py-1.5 rounded-lg flex items-center justify-between gap-3"
                   style={{ background: 'var(--bg-2)', border: '1px solid var(--border)' }}
                 >
-                  <span className="text-xs font-semibold truncate">{w.name}</span>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <BankLogo name={w.name} color={w.color} size={22} />
+                    <span className="text-xs font-semibold truncate">{w.name}</span>
+                  </div>
                   <div className="flex items-center gap-1">
                     <span className="text-[11px] text-muted">Rp</span>
                     <input
@@ -286,7 +332,6 @@ export const OnboardingWizard = () => {
           </div>
         )}
 
-        {/* Footer */}
         <div className="flex items-center gap-2 pt-2">
           {step > 1 && (
             <button

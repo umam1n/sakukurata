@@ -1,19 +1,38 @@
-import React, { useState } from 'react';
-import { Landmark, Plus, Trash2, X } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Plus, Trash2, X, Search } from 'lucide-react';
 import { useFinance } from '../context/FinanceContext';
 import { formatRupiah } from '../utils/formatters';
-import { BUCKET_COLOR_SWATCHES } from '../utils/templates';
+import { INDONESIAN_INSTITUTIONS, INSTITUTION_TYPE_LABELS } from '../utils/indonesianBanks';
+import { BankLogo } from './BankLogo';
 
 export const MultiWalletCard = ({ onOpenAddTransaction }) => {
   const { wallets, addWallet, deleteWallet } = useFinance();
 
   const [showAddForm, setShowAddForm] = useState(false);
+  const [bankSearch, setBankSearch] = useState('');
   const [name, setName] = useState('');
   const [type, setType] = useState('bank');
   const [balance, setBalance] = useState('');
-  const [color, setColor] = useState(BUCKET_COLOR_SWATCHES[1]);
+  const [color, setColor] = useState('#005CAA');
 
   const totalWalletBalance = wallets.reduce((sum, w) => sum + Number(w.balance || 0), 0);
+
+  const filteredInstitutions = useMemo(() => {
+    const q = bankSearch.trim().toLowerCase();
+    if (!q) return INDONESIAN_INSTITUTIONS.slice(0, 12);
+    return INDONESIAN_INSTITUTIONS.filter(
+      (i) =>
+        i.name.toLowerCase().includes(q) ||
+        i.short.toLowerCase().includes(q) ||
+        i.type.toLowerCase().includes(q)
+    ).slice(0, 12);
+  }, [bankSearch]);
+
+  const handleSelectInstitution = (inst) => {
+    setName(inst.name);
+    setType(inst.type === 'digital_bank' || inst.type === 'syariah' ? 'bank' : inst.type);
+    setColor(inst.color);
+  };
 
   const handleAddWallet = async (e) => {
     e.preventDefault();
@@ -26,6 +45,7 @@ export const MultiWalletCard = ({ onOpenAddTransaction }) => {
     });
     setName('');
     setBalance('');
+    setBankSearch('');
     setShowAddForm(false);
   };
 
@@ -60,13 +80,51 @@ export const MultiWalletCard = ({ onOpenAddTransaction }) => {
       {showAddForm && (
         <form
           onSubmit={handleAddWallet}
-          className="p-3 rounded-lg space-y-2.5"
+          className="p-3 rounded-lg space-y-3"
           style={{ background: 'var(--bg-2)', border: '1px solid var(--border)' }}
         >
+          {/* Searchable Indonesian Banks & E-Wallets Picker */}
+          <div className="space-y-2">
+            <div className="relative">
+              <Search className="w-3.5 h-3.5 text-muted absolute left-2.5 top-2.5" />
+              <input
+                type="text"
+                placeholder="Search Indonesian banks & e-wallets (BCA, Jago, BSI, SeaBank, GoPay...)"
+                value={bankSearch}
+                onChange={(e) => setBankSearch(e.target.value)}
+                className="w-full y-input pl-8 pr-3 py-1.5 text-xs"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 max-h-36 overflow-y-auto pr-0.5">
+              {filteredInstitutions.map((inst) => {
+                const active = name === inst.name;
+                return (
+                  <button
+                    key={inst.id}
+                    type="button"
+                    onClick={() => handleSelectInstitution(inst)}
+                    className="p-1.5 rounded-lg flex items-center gap-2 text-left transition-all"
+                    style={{
+                      background: active ? 'rgba(var(--color-accent-rgb), 0.14)' : 'var(--bg-card)',
+                      border: `1px solid ${active ? 'var(--color-accent)' : 'var(--border)'}`
+                    }}
+                  >
+                    <BankLogo institutionId={inst.id} size={24} />
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-semibold truncate">{inst.name}</p>
+                      <span className="text-[9px] text-dim block">{INSTITUTION_TYPE_LABELS[inst.type]}</span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           <div className="grid grid-cols-2 gap-2">
             <input
               type="text"
-              placeholder="Name (e.g. SeaBank)"
+              placeholder="Wallet name"
               value={name}
               onChange={(e) => setName(e.target.value)}
               className="y-input px-2.5 py-1.5 text-xs"
@@ -79,6 +137,7 @@ export const MultiWalletCard = ({ onOpenAddTransaction }) => {
               <option value="investment">Investment</option>
             </select>
           </div>
+
           <div className="flex items-center gap-2">
             <input
               type="number"
@@ -87,23 +146,18 @@ export const MultiWalletCard = ({ onOpenAddTransaction }) => {
               onChange={(e) => setBalance(e.target.value)}
               className="flex-1 y-input px-2.5 py-1.5 text-xs"
             />
-            <input
-              type="color"
-              value={color}
-              onChange={(e) => setColor(e.target.value)}
-              className="w-8 h-8 rounded bg-transparent cursor-pointer border-0"
-            />
-            <button type="submit" className="px-3 py-1.5 rounded-md y-btn-accent text-xs">
+            <button type="submit" className="px-3.5 py-1.5 rounded-md y-btn-accent text-xs">
               Save
             </button>
           </div>
         </form>
       )}
 
+      {/* Wallets List with Branded SVG Logos */}
       <div className="space-y-2">
         {wallets.length === 0 ? (
           <div className="text-center py-6 text-xs text-muted rounded-lg" style={{ background: 'var(--bg-2)' }}>
-            No wallets yet. Click <strong>+ Wallet</strong> to add one.
+            No wallets yet. Click <strong>+ Wallet</strong> to choose from 40+ Indonesian banks & e-wallets.
           </div>
         ) : (
           wallets.map((w) => (
@@ -113,12 +167,7 @@ export const MultiWalletCard = ({ onOpenAddTransaction }) => {
               style={{ background: 'var(--bg-2)', border: '1px solid var(--border)' }}
             >
               <div className="flex items-center gap-2.5 min-w-0">
-                <div
-                  className="w-8 h-8 rounded-lg flex items-center justify-center text-white flex-shrink-0"
-                  style={{ backgroundColor: w.color || '#3b82f6' }}
-                >
-                  <Landmark className="w-4 h-4" />
-                </div>
+                <BankLogo name={w.name} color={w.color} size={34} />
                 <div className="min-w-0">
                   <p className="font-semibold text-xs truncate">{w.name}</p>
                   <span className="text-[10px] text-muted uppercase">{w.type}</span>
