@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { Wallet, Landmark, Plus, Trash2, X } from 'lucide-react';
+import { Landmark, Plus, Trash2, X } from 'lucide-react';
 import { useFinance } from '../context/FinanceContext';
 import { formatRupiah } from '../utils/formatters';
 import { BUCKET_COLOR_SWATCHES } from '../utils/templates';
 
 export const MultiWalletCard = ({ onOpenAddTransaction }) => {
-  const { profile, wallets, addWallet, deleteWallet } = useFinance();
+  const { wallets, addWallet, deleteWallet } = useFinance();
 
   const [showAddForm, setShowAddForm] = useState(false);
   const [name, setName] = useState('');
@@ -30,144 +30,110 @@ export const MultiWalletCard = ({ onOpenAddTransaction }) => {
   };
 
   return (
-    <div className="space-y-4 mb-6">
-      {/* Main Balance Card & Quick Action Tiles */}
-      <div className="grid grid-cols-12 gap-3">
-        <div className="col-span-8 dark-card p-5 rounded-[28px] flex flex-col justify-between min-h-[155px] relative overflow-hidden">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-white tracking-tight truncate">
-              {profile?.displayName || 'Dompet Saya'}
-            </span>
-            <span className="text-[10px] text-emerald-400 font-bold">
-              {wallets.length} Akun
-            </span>
-          </div>
-
-          <div>
-            <span className="text-[10px] text-slate-400 font-semibold uppercase block">
-              Total Saldo Semua Dompet
-            </span>
-            <h2 className="text-2xl font-extrabold text-white tracking-tight mt-0.5">
-              {formatRupiah(totalWalletBalance)}
-            </h2>
-          </div>
+    <div className="y-card p-4 space-y-4">
+      <div className="flex items-center justify-between gap-2">
+        <div>
+          <span className="text-[11px] text-muted font-medium block">Total Balance Across Wallets</span>
+          <h2 className="text-xl font-extrabold tracking-tight text-accent">{formatRupiah(totalWalletBalance)}</h2>
         </div>
 
-        <div className="col-span-4 flex flex-col gap-2.5">
-          <button
-            type="button"
-            onClick={onOpenAddTransaction}
-            className="flex-1 bg-[#8ee4af] p-3 rounded-[22px] flex flex-col items-center justify-center text-slate-950 font-bold shadow-md hover:opacity-90 transition-all"
-            title="Catat Transaksi"
-          >
-            <Plus className="w-5 h-5 stroke-[2.5]" />
-            <span className="text-[10px] font-extrabold mt-0.5">Transaksi</span>
-          </button>
+        <div className="flex items-center gap-1.5">
           <button
             type="button"
             onClick={() => setShowAddForm((v) => !v)}
-            className="flex-1 bg-[#fbe7c6] p-3 rounded-[22px] flex flex-col items-center justify-center text-slate-950 font-bold shadow-md hover:opacity-90 transition-all"
-            title="Tambah Dompet Baru"
+            className="px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1"
+            style={{ background: 'var(--bg-2)', border: '1px solid var(--border)' }}
           >
-            <Wallet className="w-4 h-4" />
-            <span className="text-[10px] font-extrabold mt-0.5">+ Dompet</span>
+            {showAddForm ? <X className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5 text-accent" />}
+            Wallet
+          </button>
+          <button
+            type="button"
+            onClick={onOpenAddTransaction}
+            className="px-2.5 py-1.5 rounded-lg y-btn-accent text-xs flex items-center gap-1"
+          >
+            <Plus className="w-3.5 h-3.5" /> Entry
           </button>
         </div>
       </div>
 
-      {/* Add Wallet Form */}
       {showAddForm && (
-        <form onSubmit={handleAddWallet} className="dark-card p-4 rounded-[24px] space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-extrabold text-white">Tambah Dompet / Rekening</span>
-            <button type="button" onClick={() => setShowAddForm(false)} className="text-slate-400 hover:text-white">
-              <X className="w-4 h-4" />
-            </button>
-          </div>
+        <form
+          onSubmit={handleAddWallet}
+          className="p-3 rounded-lg space-y-2.5"
+          style={{ background: 'var(--bg-2)', border: '1px solid var(--border)' }}
+        >
           <div className="grid grid-cols-2 gap-2">
             <input
               type="text"
-              placeholder="Nama (mis: SeaBank)"
+              placeholder="Name (e.g. SeaBank)"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="bg-[#0d1117] border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-400"
+              className="y-input px-2.5 py-1.5 text-xs"
               required
             />
-            <select
-              value={type}
-              onChange={(e) => setType(e.target.value)}
-              className="bg-[#0d1117] border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-400"
-            >
+            <select value={type} onChange={(e) => setType(e.target.value)} className="y-input px-2.5 py-1.5 text-xs">
               <option value="bank">Bank</option>
               <option value="ewallet">E-Wallet</option>
-              <option value="cash">Tunai</option>
-              <option value="investment">Investasi</option>
+              <option value="cash">Cash</option>
+              <option value="investment">Investment</option>
             </select>
           </div>
           <div className="flex items-center gap-2">
             <input
               type="number"
-              placeholder="Saldo Awal (Rp)"
+              placeholder="Starting balance (IDR)"
               value={balance}
               onChange={(e) => setBalance(e.target.value)}
-              className="flex-1 bg-[#0d1117] border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-400"
+              className="flex-1 y-input px-2.5 py-1.5 text-xs"
             />
             <input
               type="color"
               value={color}
               onChange={(e) => setColor(e.target.value)}
-              className="w-9 h-9 rounded-xl bg-transparent cursor-pointer border-0"
+              className="w-8 h-8 rounded bg-transparent cursor-pointer border-0"
             />
-            <button
-              type="submit"
-              className="px-4 py-2 rounded-xl bg-emerald-500 text-slate-950 font-extrabold text-xs"
-            >
-              Simpan
+            <button type="submit" className="px-3 py-1.5 rounded-md y-btn-accent text-xs">
+              Save
             </button>
           </div>
         </form>
       )}
 
-      {/* Wallets List */}
-      <div className="space-y-2.5 pt-1">
-        <span className="text-xs font-extrabold text-white uppercase tracking-wider block px-1">
-          Daftar Rekening & Dompet
-        </span>
-
+      <div className="space-y-2">
         {wallets.length === 0 ? (
-          <div className="dark-card p-6 rounded-[24px] text-center text-xs text-slate-400">
-            Belum ada dompet. Tap <strong>+ Dompet</strong> di atas untuk menambahkan.
+          <div className="text-center py-6 text-xs text-muted rounded-lg" style={{ background: 'var(--bg-2)' }}>
+            No wallets yet. Click <strong>+ Wallet</strong> to add one.
           </div>
         ) : (
           wallets.map((w) => (
             <div
               key={w.id}
-              className="dark-card p-4 rounded-[24px] flex items-center justify-between hover:bg-[#1a1e24] transition-all group"
+              className="px-3 py-2.5 rounded-lg flex items-center justify-between gap-2 group"
+              style={{ background: 'var(--bg-2)', border: '1px solid var(--border)' }}
             >
-              <div className="flex items-center gap-3 min-w-0">
+              <div className="flex items-center gap-2.5 min-w-0">
                 <div
-                  className="w-10 h-10 rounded-2xl flex items-center justify-center text-white font-bold flex-shrink-0"
+                  className="w-8 h-8 rounded-lg flex items-center justify-center text-white flex-shrink-0"
                   style={{ backgroundColor: w.color || '#3b82f6' }}
                 >
-                  <Landmark className="w-5 h-5" />
+                  <Landmark className="w-4 h-4" />
                 </div>
                 <div className="min-w-0">
-                  <h4 className="font-bold text-white text-sm truncate">{w.name}</h4>
-                  <span className="text-[10px] text-slate-400 font-semibold uppercase block mt-0.5">
-                    {w.type}
-                  </span>
+                  <p className="font-semibold text-xs truncate">{w.name}</p>
+                  <span className="text-[10px] text-muted uppercase">{w.type}</span>
                 </div>
               </div>
 
               <div className="flex items-center gap-2">
-                <span className="text-sm font-extrabold text-white">{formatRupiah(w.balance)}</span>
+                <span className="text-xs font-bold">{formatRupiah(w.balance)}</span>
                 <button
                   type="button"
                   onClick={() => deleteWallet(w.id)}
-                  className="p-1.5 text-slate-500 hover:text-rose-400 opacity-0 group-hover:opacity-100 transition-opacity"
-                  title="Hapus Dompet"
+                  className="p-1 text-dim hover:text-rose-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                  title="Delete Wallet"
                 >
-                  <Trash2 className="w-4 h-4" />
+                  <Trash2 className="w-3.5 h-3.5" />
                 </button>
               </div>
             </div>

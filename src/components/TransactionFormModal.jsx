@@ -15,12 +15,8 @@ export const TransactionFormModal = ({ isOpen, onClose, initialCategoryId }) => 
   const [transactionDate, setTransactionDate] = useState(new Date().toISOString().slice(0, 16));
 
   useEffect(() => {
-    if (categories.length > 0) {
-      setBucketId(initialCategoryId || categories[0].id);
-    }
-    if (wallets.length > 0) {
-      setWalletId(wallets[0].id);
-    }
+    if (categories.length > 0) setBucketId(initialCategoryId || categories[0].id);
+    if (wallets.length > 0) setWalletId(wallets[0].id);
   }, [isOpen, initialCategoryId, categories, wallets]);
 
   if (!isOpen) return null;
@@ -37,10 +33,10 @@ export const TransactionFormModal = ({ isOpen, onClose, initialCategoryId }) => 
       type,
       amount: numAmount,
       bucketId: type === 'expense' ? bucketId || null : null,
-      bucketName: type === 'expense' ? (matchedBucket ? matchedBucket.name : 'Umum') : 'Pemasukan',
+      bucketName: type === 'expense' ? (matchedBucket ? matchedBucket.name : 'General') : 'Income',
       walletId: walletId || null,
-      walletName: matchedWallet ? matchedWallet.name : 'Dompet',
-      merchant: merchant.trim() || (type === 'income' ? 'Pemasukan' : 'Pengeluaran'),
+      walletName: matchedWallet ? matchedWallet.name : 'Wallet',
+      merchant: merchant.trim() || (type === 'income' ? 'Extra Income' : 'Expense'),
       notes: notes.trim(),
       transactionDate: new Date(transactionDate).toISOString()
     });
@@ -52,117 +48,107 @@ export const TransactionFormModal = ({ isOpen, onClose, initialCategoryId }) => 
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-md p-6 shadow-2xl relative">
-        <button
-          onClick={onClose}
-          className="absolute top-5 right-5 p-2 rounded-xl bg-slate-800 text-slate-400 hover:text-white transition-all"
-        >
-          <X className="w-5 h-5" />
-        </button>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+      <div className="y-card w-full max-w-md p-5 space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-extrabold">Add Transaction</h2>
+          <button onClick={onClose} className="p-1.5 rounded-lg text-muted hover:text-primary">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
 
-        <h2 className="text-lg font-extrabold text-white tracking-tight mb-5">Tambah Transaksi</h2>
-
-        <form onSubmit={handleSubmit} className="space-y-3.5">
-          <div className="flex items-center gap-2 bg-slate-950 p-1.5 rounded-2xl border border-slate-800">
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <div className="grid grid-cols-2 gap-1 p-1 rounded-lg" style={{ background: 'var(--bg-2)' }}>
             <button
               type="button"
               onClick={() => setType('expense')}
-              className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all ${
-                type === 'expense' ? 'bg-rose-500 text-white shadow-md' : 'text-slate-400 hover:text-white'
+              className={`py-1.5 rounded-md text-xs font-bold transition-all ${
+                type === 'expense' ? 'bg-rose-500 text-white' : 'text-muted hover:text-primary'
               }`}
             >
-              - Pengeluaran
+              - Expense
             </button>
             <button
               type="button"
               onClick={() => setType('income')}
-              className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all ${
-                type === 'income' ? 'bg-emerald-500 text-slate-950 shadow-md' : 'text-slate-400 hover:text-white'
+              className={`py-1.5 rounded-md text-xs font-bold transition-all ${
+                type === 'income' ? 'y-btn-accent' : 'text-muted hover:text-primary'
               }`}
             >
-              + Pemasukan
+              + Income
             </button>
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1">Nominal (Rp)</label>
-            <div className="relative">
-              <span className="absolute left-4 top-3 text-slate-400 text-sm font-bold">Rp</span>
-              <input
-                type="number"
-                placeholder="0"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 text-white font-extrabold text-lg rounded-2xl pl-12 pr-4 py-2.5 focus:outline-none focus:border-emerald-500"
-                required
-                autoFocus
-              />
-            </div>
+            <label className="block text-[11px] font-semibold text-muted mb-1">Amount (IDR)</label>
+            <input
+              type="number"
+              placeholder="0"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              className="w-full y-input px-3 py-2 text-base font-extrabold"
+              required
+              autoFocus
+            />
           </div>
 
-          {type === 'expense' && categories.length > 0 && (
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">Pos Anggaran</label>
-              <select
-                value={bucketId}
-                onChange={(e) => setBucketId(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 text-white rounded-2xl p-3 text-xs focus:outline-none focus:border-emerald-500"
-              >
-                {categories.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name} ({c.percentage}%)
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            {type === 'expense' && categories.length > 0 && (
+              <div>
+                <label className="block text-[11px] font-semibold text-muted mb-1">Budget Bucket</label>
+                <select
+                  value={bucketId}
+                  onChange={(e) => setBucketId(e.target.value)}
+                  className="w-full y-input px-2.5 py-2 text-xs"
+                >
+                  {categories.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name} ({c.percentage}%)</option>
+                  ))}
+                </select>
+              </div>
+            )}
 
-          {wallets.length > 0 && (
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">Rekening / Dompet</label>
-              <select
-                value={walletId}
-                onChange={(e) => setWalletId(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 text-white rounded-2xl p-3 text-xs focus:outline-none focus:border-emerald-500"
-              >
-                {wallets.map((w) => (
-                  <option key={w.id} value={w.id}>
-                    {w.name} ({formatRupiah(w.balance)})
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
+            {wallets.length > 0 && (
+              <div className={type === 'income' ? 'sm:col-span-2' : ''}>
+                <label className="block text-[11px] font-semibold text-muted mb-1">Wallet / Account</label>
+                <select
+                  value={walletId}
+                  onChange={(e) => setWalletId(e.target.value)}
+                  className="w-full y-input px-2.5 py-2 text-xs"
+                >
+                  {wallets.map((w) => (
+                    <option key={w.id} value={w.id}>{w.name} ({formatRupiah(w.balance)})</option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1">
-              {type === 'expense' ? 'Merchant / Keperluan' : 'Sumber Pemasukan'}
+            <label className="block text-[11px] font-semibold text-muted mb-1">
+              {type === 'expense' ? 'Merchant / Description' : 'Income Source'}
             </label>
             <input
               type="text"
-              placeholder={type === 'expense' ? 'misal: Indomaret, Kopi, Listrik' : 'misal: Bonus, Freelance'}
+              placeholder={type === 'expense' ? 'e.g. Coffee Shop, Groceries' : 'e.g. Freelance, Bonus'}
               value={merchant}
               onChange={(e) => setMerchant(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-800 text-white rounded-2xl px-4 py-2.5 text-xs focus:outline-none focus:border-emerald-500"
+              className="w-full y-input px-3 py-2 text-xs"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1">Tanggal</label>
+            <label className="block text-[11px] font-semibold text-muted mb-1">Date & Time</label>
             <input
               type="datetime-local"
               value={transactionDate}
               onChange={(e) => setTransactionDate(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-800 text-white rounded-2xl px-4 py-2.5 text-xs focus:outline-none focus:border-emerald-500"
+              className="w-full y-input px-3 py-2 text-xs"
             />
           </div>
 
-          <button
-            type="submit"
-            className="w-full py-3.5 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-xs shadow-lg shadow-emerald-500/25 transition-all mt-2"
-          >
-            Simpan Transaksi
+          <button type="submit" className="w-full py-2.5 rounded-lg y-btn-accent text-xs mt-1">
+            Save Transaction
           </button>
         </form>
       </div>

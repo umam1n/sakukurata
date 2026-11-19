@@ -8,11 +8,7 @@ export const AnalyticsCharts = () => {
   const { categoryStats, totalExpenses, totalIncome, isValidPercentageTotal } = useFinance();
 
   const pieData = categoryStats
-    .map((c) => ({
-      name: c.name,
-      value: c.spentAmount,
-      color: c.color || '#10b981'
-    }))
+    .map((c) => ({ name: c.name, value: c.spentAmount, color: c.color || '#34d399' }))
     .filter((c) => c.value > 0);
 
   const overallSpentRatio = totalIncome > 0 ? totalExpenses / totalIncome : 0;
@@ -25,94 +21,82 @@ export const AnalyticsCharts = () => {
   healthScore = Math.max(10, Math.min(100, healthScore));
 
   return (
-    <div className="space-y-4 mb-6">
-      {/* 1. Pie Chart - Distribution of Expenses */}
-      <div className="dark-card rounded-[28px] p-5 flex flex-col justify-between">
-        <div className="flex items-center justify-between mb-3 gap-2">
+    <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+      <div className="md:col-span-7 y-card p-4 flex flex-col justify-between">
+        <div className="flex items-center justify-between mb-3">
           <div>
-            <h3 className="font-bold text-white text-base flex items-center gap-2">
-              <ChartIcon className="w-4 h-4 text-emerald-400" /> Proporsi Pengeluaran
+            <h3 className="font-bold text-sm flex items-center gap-1.5">
+              <ChartIcon className="w-4 h-4 text-accent" /> Expense Distribution
             </h3>
-            <p className="text-[11px] text-slate-400 mt-0.5">Realisasi per pos anggaranmu.</p>
+            <p className="text-[11px] text-muted">Actual spending by budget bucket</p>
           </div>
-          <span className="text-[11px] font-bold text-slate-200 bg-white/5 px-2.5 py-1 rounded-xl">
-            {formatRupiah(totalExpenses)}
-          </span>
+          <span className="text-xs font-bold text-accent">{formatRupiah(totalExpenses)}</span>
         </div>
 
         {pieData.length === 0 ? (
-          <div className="h-48 flex items-center justify-center text-xs text-slate-500 bg-[#0d1117] rounded-2xl border border-white/5">
-            Belum ada pengeluaran untuk ditampilkan.
+          <div
+            className="h-48 flex items-center justify-center text-xs text-muted rounded-lg"
+            style={{ background: 'var(--bg-2)', border: '1px solid var(--border)' }}
+          >
+            No expense data to chart yet.
           </div>
         ) : (
-          <div className="h-60 w-full">
+          <div className="h-56 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
-                <Pie
-                  data={pieData}
-                  cx="50%"
-                  cy="45%"
-                  innerRadius={48}
-                  outerRadius={78}
-                  paddingAngle={4}
-                  dataKey="value"
-                >
-                  {pieData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
+                <Pie data={pieData} cx="50%" cy="45%" innerRadius={46} outerRadius={74} paddingAngle={4} dataKey="value">
+                  {pieData.map((entry, idx) => (
+                    <Cell key={idx} fill={entry.color} />
                   ))}
                 </Pie>
                 <Tooltip
-                  formatter={(value) => [formatRupiah(value), 'Pengeluaran']}
+                  formatter={(value) => [formatRupiah(value), 'Spent']}
                   contentStyle={{
-                    backgroundColor: '#0f172a',
-                    borderColor: '#334155',
-                    borderRadius: '1rem',
-                    color: '#fff',
+                    backgroundColor: 'var(--bg-card)',
+                    borderColor: 'var(--border)',
+                    borderRadius: '8px',
+                    color: 'var(--text)',
                     fontSize: '12px'
                   }}
                 />
-                <Legend
-                  verticalAlign="bottom"
-                  height={36}
-                  iconType="circle"
-                  wrapperStyle={{ fontSize: '11px', color: '#94a3b8' }}
-                />
+                <Legend verticalAlign="bottom" height={32} iconType="circle" wrapperStyle={{ fontSize: '11px' }} />
               </PieChart>
             </ResponsiveContainer>
           </div>
         )}
       </div>
 
-      {/* 2. Financial Health Score */}
-      <div className="dark-card rounded-[28px] p-5 space-y-4">
+      <div className="md:col-span-5 y-card p-4 flex flex-col justify-between space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <div className="flex items-center gap-1.5 text-emerald-400 font-bold text-[10px] uppercase tracking-wider">
-              <Activity className="w-3.5 h-3.5" /> Financial Health Score
+            <div className="flex items-center gap-1 text-accent font-bold text-[10px] uppercase tracking-wider">
+              <Activity className="w-3.5 h-3.5" /> Health Score
             </div>
-            <h3 className="font-extrabold text-white text-base mt-0.5">Kesehatan Keuangan</h3>
+            <h3 className="font-bold text-sm mt-0.5">Financial Health</h3>
           </div>
-
-          <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 border border-emerald-500/25 flex items-center justify-center">
-            <span className="text-xl font-black text-emerald-400">{healthScore}</span>
+          <div className="w-12 h-12 rounded-xl y-pill-accent flex items-center justify-center">
+            <span className="text-lg font-extrabold">{healthScore}</span>
           </div>
         </div>
 
-        <p className={`text-xs font-bold ${healthScore >= 75 ? 'text-emerald-400' : 'text-amber-400'}`}>
+        <p className={`text-xs font-semibold ${healthScore >= 75 ? 'text-accent' : 'text-amber-400'}`}>
           {healthScore >= 75
-            ? 'Kondisi keuangan sehat & terkendali.'
-            : 'Pengeluaran mulai tinggi—cek ulang pos anggaranmu.'}
+            ? 'Your spending ratio is healthy and balanced.'
+            : 'Spending is trending high — review your buckets.'}
         </p>
 
-        <div className="bg-[#0d1117] p-3.5 rounded-2xl border border-white/5 text-[11px] text-slate-400 space-y-1.5">
+        <div
+          className="p-3 rounded-lg text-[11px] text-muted space-y-1.5"
+          style={{ background: 'var(--bg-2)', border: '1px solid var(--border)' }}
+        >
           <div className="flex justify-between">
-            <span>Rasio Pengeluaran / Pemasukan:</span>
-            <strong className="text-white">{Math.round(overallSpentRatio * 100)}%</strong>
+            <span>Expense-to-Income Ratio</span>
+            <strong className="text-primary">{Math.round(overallSpentRatio * 100)}%</strong>
           </div>
           <div className="flex justify-between">
-            <span>Status Alokasi 100%:</span>
-            <strong className={isValidPercentageTotal ? 'text-emerald-400' : 'text-amber-400'}>
-              {isValidPercentageTotal ? 'Valid (100%)' : 'Perlu Disesuaikan'}
+            <span>100% Budget Discipline</span>
+            <strong className={isValidPercentageTotal ? 'text-accent' : 'text-amber-400'}>
+              {isValidPercentageTotal ? 'Balanced' : 'Needs Review'}
             </strong>
           </div>
         </div>

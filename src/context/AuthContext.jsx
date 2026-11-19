@@ -121,17 +121,23 @@ function mapFirebaseAuthError(code) {
     case 'auth/invalid-credential':
     case 'auth/wrong-password':
     case 'auth/user-not-found':
-      return 'Email atau password salah.';
+      return 'Invalid email or password.';
     case 'auth/email-already-in-use':
-      return 'Email sudah terdaftar. Silakan masuk.';
+      return 'This email is already registered. Please sign in instead.';
     case 'auth/weak-password':
-      return 'Password minimal 6 karakter.';
+      return 'Password must be at least 6 characters.';
     case 'auth/invalid-email':
-      return 'Format email tidak valid.';
+      return 'Invalid email address format.';
+    case 'auth/operation-not-allowed':
+      return 'Sign-in method is not enabled in Firebase Console (Authentication -> Sign-in method).';
+    case 'auth/unauthorized-domain':
+      return 'This Vercel domain is not authorized in Firebase Console (Authentication -> Settings -> Authorized domains).';
+    case 'auth/popup-blocked':
+      return 'Sign-in popup was blocked by your browser. Please allow popups and try again.';
     case 'auth/network-request-failed':
-      return 'Koneksi internet bermasalah. Coba lagi.';
+      return 'Network error. Please check your connection and try again.';
     default:
-      return 'Gagal memproses autentikasi. Coba lagi.';
+      return `Authentication failed (${code || 'unknown'}). Please try again.`;
   }
 }
 

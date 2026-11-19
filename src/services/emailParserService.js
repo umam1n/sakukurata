@@ -1,24 +1,32 @@
-// Smart Email Expense Parser Engine & Centralized Bot Communicator
+// Serverless Bank Email Receipt Parser & Direct Browser Gmail API Client (No Backend Server Needed)
+import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
+import { auth, isFirebaseConfigured } from './firebase';
 
-const CENTRAL_BOT_URL = 'http://localhost:5000';
+const GMAIL_TOKEN_KEY = 'sakukurata_gmail_access_token';
 
-export const parseBankEmailText = (rawText) => {
-  if (!rawText || typeof rawText !== 'string') {
+const PROMO_KEYWORDS = [
+  'promo', 'discount', 'voucher', 'cashback', 'newsletter', 'unsubscribe',
+  'penawaran', 'undangan', 'kupon', 'hadiah', 'gratis', 'syarat & ketentuan'
+];
+
+export const parseBankEmailText = (rawText, subject = '') => {
+  if (!rawText || typeof rawText !== 'string') return null;
+
+  const text = `${subject}\n${rawText}`.trim();
+  const lowerHead = text.slice(0, 260).toLowerCase();
+  if (PROMO_KEYWORDS.some((kw) => lowerHead.includes(kw))) {
     return null;
   }
 
-  const text = rawText.trim();
   let amount = 0;
   let recipientOrMerchant = '';
   let transactionType = '';
   let walletName = '';
   let transactionDate = new Date().toISOString();
-  let suggestedCategoryId = '';
 
-  // 1. myBCA Pattern Extractor
-  if (text.includes('myBCA') || text.includes('Customer PAN') || text.includes('Merchant Location')) {
+  // 1. myBCA
+  if (/myBCA|Customer PAN|Merchant Location|Payment to\s*:/i.test(text)) {
     walletName = 'Bank BCA';
-
     const typeMatch = text.match(/Transaction Type\s*:\s*(.+)/i);
     if (typeMatch) transactionType = typeMatch[1].trim();
 
@@ -31,139 +39,187 @@ export const parseBankEmailText = (rawText) => {
     const dateMatch = text.match(/Transaction Date\s*:\s*(.+)/i);
     if (dateMatch) {
       const parsedDate = new Date(dateMatch[1].trim());
-      if (!isNaN(parsedDate.getTime())) transactionDate = parsedDate.toISOString();
+      if (!Number.isNaN(parsedDate.getTime())) transactionDate = parsedDate.toISOString();
     }
-  } 
-  // 2. Bank Mandiri Pattern Extractor
-  else if (text.includes('Bank Mandiri') || text.includes('Transfer Berhasil') || text.includes('Rekening Sumber')) {
+  }
+  // 2. Bank Mandiri
+  else if (/Bank Mandiri|Transfer Berhasil|Rekening Sumber|Pembayaran Berhasil/i.test(text)) {
     walletName = 'Bank Mandiri';
-    transactionType = 'Transfer Bank';
+    transactionType = 'Bank Transfer';
 
-    const amountMatch = text.match(/Jumlah Transfer\s*(?:Rp|IDR)?\s*([\d.,]+)/i);
+    const amountMatch = text.match(/(?:Jumlah Transfer|Nominal|Total)\s*(?::\s*)?(?:Rp|IDR)?\s*([\d.,]+)/i);
     if (amountMatch) amount = parseAmountString(amountMatch[1]);
 
-    const penerimaMatch = text.match(/Penerima\s*([\s\S]*?)(?:Bank|Tanggal|Jam|Jumlah|No\. Referensi)/i);
-    if (penerimaMatch) {
-      recipientOrMerchant = penerimaMatch[1].replace(/\n/g, ' ').trim();
-    }
-
-    const tanggalMatch = text.match(/Tanggal\s*([0-9]{1,2}\s+[A-Za-z]{3}\s+[0-9]{4})/i);
-    const jamMatch = text.match(/Jam\s*([0-9]{2}:[0-9]{2}:[0-9]{2})/i);
-    if (tanggalMatch) {
-      const timeStr = jamMatch ? jamMatch[1] : '00:00:00';
-      const parsedDate = new Date(`${tanggalMatch[1]} ${timeStr}`);
-      if (!isNaN(parsedDate.getTime())) transactionDate = parsedDate.toISOString();
-    }
-  } 
-  // 3. Generic / E-Wallet
+    const penerimaMatch = text.match(/Penerima\s*(?::\s*)?([^\n\r]+)/i);
+    if (penerimaMatch) recipientOrMerchant = penerimaMatch[1].trim();
+  }
+  // 3. Generic / E-Wallet / Other Banks
   else {
-    if (text.match(/gopay/i)) walletName = 'GoPay';
-    else if (text.match(/ovo/i)) walletName = 'OVO / Dana';
-    else if (text.match(/bri/i)) walletName = 'Bank BRI';
-    else if (text.match(/bni/i)) walletName = 'Bank BNI';
+    if (/gopay/i.test(text)) walletName = 'GoPay';
+    else if (/ovo/i.test(text)) walletName = 'OVO';
+    else if (/dana/i.test(text)) walletName = 'DANA';
+    else if (/shopeepay/i.test(text)) walletName = 'ShopeePay';
+    else if (/bri/i.test(text)) walletName = 'Bank BRI';
+    else if (/bni/i.test(text)) walletName = 'Bank BNI';
 
-    const amountMatch = text.match(/(?:Jumlah|Total|Nominal|Amount|Bayar)\s*(?::\s*)?(?:Rp|IDR)?\s*([\d.,]+)/i) || 
-                        text.match(/(?:Rp|IDR)\s*([\d.,]+)/i);
+    const amountMatch =
+      text.match(/(?:Jumlah|Total|Nominal|Amount|Paid|Payment|Bayar)\s*(?::\s*)?(?:Rp|IDR)?\s*([\d.,]+)/i) ||
+      text.match(/(?:Rp|IDR)\s*([\d.,]+)/i);
     if (amountMatch) amount = parseAmountString(amountMatch[1]);
 
-    const merchantMatch = text.match(/(?:Penerima|Payment to|Merchant|Kepada|Store)\s*(?::\s*)?([^\n]+)/i);
+    const merchantMatch = text.match(/(?:Penerima|Payment to|Merchant|Kepada|Store|To)\s*(?::\s*)?([^\n\r]+)/i);
     if (merchantMatch) recipientOrMerchant = merchantMatch[1].trim();
 
-    const typeMatch = text.match(/(?:Jenis Transaksi|Transaction Type|Tipe)\s*(?::\s*)?([^\n]+)/i);
+    const typeMatch = text.match(/(?:Jenis Transaksi|Transaction Type|Type)\s*(?::\s*)?([^\n\r]+)/i);
     if (typeMatch) transactionType = typeMatch[1].trim();
-  }
-
-  // Category Inference
-  const corpus = (recipientOrMerchant + ' ' + transactionType + ' ' + text).toLowerCase();
-  if (corpus.includes('coffee') || corpus.includes('kopi') || corpus.includes('jump start') || corpus.includes('starbucks')) {
-    suggestedCategoryId = 'cat_reward';
-  } else if (corpus.includes('cicilan') || corpus.includes('kpr') || corpus.includes('angsuran') || corpus.includes('utang')) {
-    suggestedCategoryId = 'cat_cicilan';
-  } else if (corpus.includes('indomaret') || corpus.includes('alfamart') || corpus.includes('pln') || corpus.includes('supermarket')) {
-    suggestedCategoryId = 'cat_kebutuhan';
-  } else if (corpus.includes('tabungan') || corpus.includes('investasi') || corpus.includes('deposito')) {
-    suggestedCategoryId = 'cat_tabungan';
   }
 
   return {
     rawText,
     amount,
-    recipientOrMerchant: recipientOrMerchant || 'Transaksi Email',
-    transactionType: transactionType || '',
-    walletName: walletName || 'Bank BCA',
+    recipientOrMerchant: recipientOrMerchant || subject || 'Email Transaction',
+    transactionType: transactionType || 'Bank Notification',
+    walletName: walletName || 'Bank Account',
     transactionDate,
-    suggestedCategoryId,
     isParsedSuccess: amount > 0
   };
 };
 
 const parseAmountString = (str) => {
   if (!str) return 0;
-  let cleaned = str;
-  if (cleaned.includes('.') && cleaned.includes(',')) {
-    cleaned = cleaned.replace(/\./g, '').replace(',', '.');
+  let cleaned = str.trim();
+  if (cleaned.includes(',') && cleaned.includes('.')) {
+    if (cleaned.lastIndexOf(',') > cleaned.lastIndexOf('.')) {
+      cleaned = cleaned.replace(/\./g, '').replace(',', '.');
+    } else {
+      cleaned = cleaned.replace(/,/g, '');
+    }
+  } else if (cleaned.includes(',')) {
+    const parts = cleaned.split(',');
+    cleaned = parts[parts.length - 1].length === 2 ? cleaned.replace(',', '.') : cleaned.replace(/,/g, '');
   } else if (cleaned.includes('.')) {
     const parts = cleaned.split('.');
-    if (parts[parts.length - 1].length === 3) cleaned = cleaned.replace(/\./g, '');
-  } else if (cleaned.includes(',')) {
-    cleaned = cleaned.replace(',', '.');
+    cleaned = parts[parts.length - 1].length === 2 ? cleaned : cleaned.replace(/\./g, '');
   }
-  return parseFloat(cleaned) || 0;
+  return Math.round(parseFloat(cleaned)) || 0;
 };
 
-// -------------------------------------------------------------
-// Centralized Bot Inbox Sync (Web & Mobile API Bridge)
-// -------------------------------------------------------------
-export const fetchGmailInboxNotifications = async () => {
+const decodeBase64Url = (data) => {
+  if (!data) return '';
   try {
-    const response = await fetch(`${CENTRAL_BOT_URL}/api/gmail/sync`);
-    if (response.ok) {
-      const data = await response.json();
-      return data.parsedTransactions.map((tx, idx) => ({
-        id: `bot_msg_${idx}_${Date.now()}`,
-        sender: `${tx.walletName} Bot Reader`,
-        subject: `Notifikasi ${tx.recipientOrMerchant}`,
-        date: tx.transactionDate,
-        snippet: `Ekstraksi Centralized Bot: ${tx.recipientOrMerchant} Rp ${tx.amount}`,
-        rawBody: `Transaction Date: ${tx.transactionDate}\nPayment to: ${tx.recipientOrMerchant}\nTotal Payment: IDR ${tx.amount}`
-      }));
-    }
-  } catch (err) {
-    console.warn('Centralized Bot Server unreachable, fallback to local reader simulation:', err);
+    const base64 = data.replace(/-/g, '+').replace(/_/g, '/');
+    const binary = atob(base64);
+    const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
+    return new TextDecoder('utf-8').decode(bytes);
+  } catch {
+    return '';
+  }
+};
+
+const extractEmailBody = (payload) => {
+  if (!payload) return '';
+  if (payload.body?.data) {
+    return decodeBase64Url(payload.body.data).replace(/<[^>]*>/g, ' ');
+  }
+  if (Array.isArray(payload.parts)) {
+    const plain = payload.parts.find((p) => p.mimeType === 'text/plain');
+    if (plain?.body?.data) return decodeBase64Url(plain.body.data);
+    return payload.parts
+      .map((p) => extractEmailBody(p))
+      .filter(Boolean)
+      .join('\n');
+  }
+  return '';
+};
+
+export const getStoredGmailToken = () => sessionStorage.getItem(GMAIL_TOKEN_KEY) || '';
+
+/**
+ * Connects Gmail directly in the browser via Firebase Google OAuth + gmail.readonly scope.
+ * Works 100% serverless on Vercel ($0, no backend needed).
+ */
+export const connectGmailOAuth = async () => {
+  if (!isFirebaseConfigured || !auth) {
+    throw new Error('Firebase is not configured. Please sign in with Firebase first.');
   }
 
-  // Fallback if bot server is offline
-  return [
-    {
-      id: 'msg_101',
-      sender: 'myBCA <no-reply@bca.co.id>',
-      subject: 'myBCA Transaction Notification - QRIS Payment',
-      date: new Date().toISOString(),
-      snippet: 'You just made a transaction through myBCA. Payment to JUMP START COFFEE 1 - QRI...',
-      rawBody: `Hello RICKY MARIO BUTAR BUTAR,
-You just made a transaction through myBCA.
-Here are the details of your transaction :
+  const provider = new GoogleAuthProvider();
+  provider.addScope('https://www.googleapis.com/auth/gmail.readonly');
+  provider.setCustomParameters({ prompt: 'consent' });
 
-Status\t:\tSuccessful
-Transaction Date\t:\t25 Jul 2026 13:52:39
-Transaction Type\t:\tQRIS Payment
-Payment to\t:\tJUMP START COFFEE 1 - QRI
-Merchant Location\t:\tJakarta Selat, 12210, ID
-Acquirer\t:\tBANK MANDIRI
-Total Payment\t:\tIDR 9,900.00`
-    },
-    {
-      id: 'msg_102',
-      sender: 'Bank Mandiri <notification@bankmandiri.co.id>',
-      subject: 'Transfer Berhasil - Bank Mandiri',
-      date: new Date().toISOString(),
-      snippet: 'Berikut adalah detail transaksi Anda: Penerima EVADITUS KRESNA YUVI...',
-      rawBody: `Transfer Berhasil
-Halo RICKY MARIO BUTAR BUTAR,
-Penerima: EVADITUS KRESNA YUVI
-Bank Mandiri - 1360038412356
-Tanggal: 25 Jul 2026
-Jumlah Transfer: Rp 700.000,00`
-    }
-  ];
+  const result = await signInWithPopup(auth, provider);
+  const credential = GoogleAuthProvider.credentialFromResult(result);
+  const accessToken = credential?.accessToken;
+
+  if (!accessToken) {
+    throw new Error('Google did not return a Gmail access token. Please allow Gmail read access and try again.');
+  }
+
+  sessionStorage.setItem(GMAIL_TOKEN_KEY, accessToken);
+  return accessToken;
+};
+
+/**
+ * Fetches recent bank notification emails directly from Gmail REST API v1.
+ */
+export const fetchBankEmailsFromGmail = async (accessToken) => {
+  const token = accessToken || getStoredGmailToken();
+  if (!token) {
+    throw new Error('Gmail is not connected yet. Click "Connect Gmail" first.');
+  }
+
+  const query = encodeURIComponent(
+    '(myBCA OR "Bank Mandiri" OR "Transfer Berhasil" OR "Payment to" OR QRIS OR GoPay OR OVO OR DANA OR "Bank BRI" OR "Bank BNI")'
+  );
+
+  const listRes = await fetch(
+    `https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=12&q=${query}`,
+    { headers: { Authorization: `Bearer ${token}` } }
+  );
+
+  if (listRes.status === 401) {
+    sessionStorage.removeItem(GMAIL_TOKEN_KEY);
+    throw new Error('Gmail session expired. Please click "Connect Gmail" again.');
+  }
+
+  if (listRes.status === 403) {
+    throw new Error(
+      'Gmail API is not enabled on your Google Cloud project yet. Enable "Gmail API" in Google Cloud Console for project sakukurata-67, then retry.'
+    );
+  }
+
+  if (!listRes.ok) {
+    throw new Error(`Gmail API error (${listRes.status}). Please try again.`);
+  }
+
+  const listData = await listRes.json();
+  const messages = listData.messages || [];
+  if (messages.length === 0) return [];
+
+  const detailed = await Promise.all(
+    messages.map(async (m) => {
+      const detailRes = await fetch(
+        `https://gmail.googleapis.com/gmail/v1/users/me/messages/${m.id}?format=full`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      if (!detailRes.ok) return null;
+      const detail = await detailRes.json();
+      const headers = detail.payload?.headers || [];
+      const subject = headers.find((h) => h.name === 'Subject')?.value || 'Bank Notification';
+      const from = headers.find((h) => h.name === 'From')?.value || '';
+      const rawBody = `${detail.snippet || ''}\n${extractEmailBody(detail.payload)}`;
+      const parsed = parseBankEmailText(rawBody, subject);
+      if (!parsed || !parsed.isParsedSuccess) return null;
+
+      return {
+        id: m.id,
+        subject,
+        from,
+        rawBody,
+        parsed
+      };
+    })
+  );
+
+  return detailed.filter(Boolean);
 };

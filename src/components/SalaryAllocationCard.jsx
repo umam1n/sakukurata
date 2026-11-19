@@ -11,7 +11,7 @@ export const SalaryAllocationCard = () => {
   const [simulatorSalary, setSimulatorSalary] = useState(totalIncome || 5000000);
   const [newCatName, setNewCatName] = useState('');
   const [newCatPercent, setNewCatPercent] = useState('10');
-  const [newCatColor, setNewCatColor] = useState('#8b5cf6');
+  const [newCatColor, setNewCatColor] = useState('#818cf8');
   const [showAddForm, setShowAddForm] = useState(false);
   const [savedToast, setSavedToast] = useState(false);
 
@@ -49,17 +49,16 @@ export const SalaryAllocationCard = () => {
     setTempCategories((prev) => {
       const copy = [...prev];
       const lastIndex = copy.length - 1;
-      const newPercent = Math.max(0, (Number(copy[lastIndex].percentage) || 0) + diffTo100);
-      copy[lastIndex] = { ...copy[lastIndex], percentage: newPercent };
+      copy[lastIndex] = {
+        ...copy[lastIndex],
+        percentage: Math.max(0, (Number(copy[lastIndex].percentage) || 0) + diffTo100)
+      };
       return copy;
     });
   };
 
   const handleApplyTemplate = async (templateBuckets) => {
-    const fresh = templateBuckets.map((b, idx) => ({
-      ...b,
-      id: `tmp_${Date.now()}_${idx}`
-    }));
+    const fresh = templateBuckets.map((b, idx) => ({ ...b, id: `tmp_${Date.now()}_${idx}` }));
     setTempCategories(fresh);
     await saveBuckets(fresh);
   };
@@ -67,14 +66,10 @@ export const SalaryAllocationCard = () => {
   const handleAddCategory = (e) => {
     e.preventDefault();
     if (!newCatName.trim()) return;
-    const newCat = {
-      id: `tmp_${Date.now()}`,
-      name: newCatName.trim(),
-      percentage: Number(newCatPercent) || 0,
-      color: newCatColor,
-      icon: 'Tag'
-    };
-    setTempCategories((prev) => [...prev, newCat]);
+    setTempCategories((prev) => [
+      ...prev,
+      { id: `tmp_${Date.now()}`, name: newCatName.trim(), percentage: Number(newCatPercent) || 0, color: newCatColor, icon: 'Tag' }
+    ]);
     setNewCatName('');
     setShowAddForm(false);
   };
@@ -88,36 +83,34 @@ export const SalaryAllocationCard = () => {
     if (!isValid) return;
     await saveBuckets(tempCategories);
     setSavedToast(true);
-    setTimeout(() => setSavedToast(false), 2000);
+    setTimeout(() => setSavedToast(false), 1800);
   };
 
   return (
-    <div className="modern-glass-card rounded-[28px] p-5 space-y-5">
-      <div className="space-y-3 pb-4 border-b border-white/10">
+    <div className="y-card p-5 space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-2 pb-3" style={{ borderBottom: '1px solid var(--border)' }}>
         <div>
-          <div className="flex items-center gap-1.5 text-emerald-400 font-bold text-[11px] uppercase tracking-wider mb-1">
-            <Sliders className="w-3.5 h-3.5" /> Alokasi Anggaran Fleksibel
+          <div className="flex items-center gap-1.5 text-accent font-bold text-[10px] uppercase tracking-wider">
+            <Sliders className="w-3.5 h-3.5" /> Flexible Budget Allocator
           </div>
-          <h2 className="text-lg font-extrabold text-white tracking-tight">
-            Atur Pos Anggaran (Total 100%)
-          </h2>
+          <h2 className="text-base font-extrabold tracking-tight">100% Salary Split</h2>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
           {!isValid && (
             <button
               onClick={handleAutoBalance}
-              className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 text-[11px] font-bold border border-amber-500/30"
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 text-[11px] font-bold border border-amber-500/25"
             >
-              <Wand2 className="w-3.5 h-3.5" /> Auto-Pas ({diffTo100 > 0 ? `+${diffTo100}%` : `${diffTo100}%`})
+              <Wand2 className="w-3.5 h-3.5" /> Auto-Fit ({diffTo100 > 0 ? `+${diffTo100}%` : `${diffTo100}%`})
             </button>
           )}
 
           <div
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-extrabold border ${
+            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-bold border ${
               isValid
-                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
-                : 'bg-rose-500/10 text-rose-400 border-rose-500/30'
+                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/25'
+                : 'bg-rose-500/10 text-rose-400 border-rose-500/25'
             }`}
           >
             {isValid ? <CheckCircle className="w-3.5 h-3.5" /> : <AlertTriangle className="w-3.5 h-3.5" />}
@@ -127,24 +120,23 @@ export const SalaryAllocationCard = () => {
           <button
             onClick={handleSave}
             disabled={!isValid}
-            className={`px-4 py-1.5 rounded-xl text-[11px] font-extrabold transition-all ${
-              isValid
-                ? 'bg-emerald-500 hover:bg-emerald-400 text-slate-950'
-                : 'bg-slate-800 text-slate-500 cursor-not-allowed'
+            className={`px-3.5 py-1.5 rounded-lg text-xs transition-all ${
+              isValid ? 'y-btn-accent' : 'opacity-40 cursor-not-allowed text-muted'
             }`}
+            style={!isValid ? { background: 'var(--bg-3)' } : undefined}
           >
-            {savedToast ? 'Tersimpan!' : 'Simpan'}
+            {savedToast ? 'Saved!' : 'Save Split'}
           </button>
         </div>
       </div>
 
-      {/* Salary Input & Live Simulator */}
-      <div className="bg-[#0d1117] p-4 rounded-2xl border border-white/5 space-y-3">
-        <div className="flex items-center justify-between gap-2">
-          <span className="flex items-center gap-1.5 text-[11px] font-bold text-slate-300">
-            <Calculator className="w-3.5 h-3.5 text-blue-400" /> Simulasi Gaji / Pemasukan
+      {/* Salary Simulator */}
+      <div className="p-3.5 rounded-lg space-y-2" style={{ background: 'var(--bg-2)', border: '1px solid var(--border)' }}>
+        <div className="flex items-center justify-between">
+          <span className="flex items-center gap-1.5 text-xs font-semibold text-muted">
+            <Calculator className="w-3.5 h-3.5 text-accent" /> Income Simulator
           </span>
-          <span className="text-xs font-extrabold text-emerald-400">{formatRupiah(simulatorSalary)}</span>
+          <span className="text-xs font-extrabold text-accent">{formatRupiah(simulatorSalary)}</span>
         </div>
 
         <input
@@ -154,41 +146,38 @@ export const SalaryAllocationCard = () => {
           step="500000"
           value={Math.min(50000000, Math.max(1000000, simulatorSalary))}
           onChange={(e) => setSimulatorSalary(Number(e.target.value))}
-          className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-400"
+          className="w-full h-1.5 rounded-lg cursor-pointer"
+          style={{ accentColor: 'var(--color-accent)' }}
         />
 
         {simulatorSalary !== baseSalary && (
           <button
             type="button"
             onClick={() => setBaseSalary(simulatorSalary)}
-            className="text-[11px] font-bold text-emerald-400 hover:underline"
+            className="text-[11px] font-semibold text-accent hover:underline"
           >
-            Terapkan {formatRupiah(simulatorSalary)} sebagai Gaji Bulanan saya →
+            Set {formatRupiah(simulatorSalary)} as my monthly base income →
           </button>
         )}
       </div>
 
-      {/* Quick Templates */}
-      <div className="space-y-2">
-        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-          Terapkan Template Cepat:
-        </span>
-        <div className="flex flex-wrap gap-1.5">
-          {BUDGET_TEMPLATES.map((tpl) => (
-            <button
-              key={tpl.id}
-              type="button"
-              onClick={() => handleApplyTemplate(tpl.buckets)}
-              className="px-2.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-200 text-[11px] font-semibold border border-white/10 transition-all"
-            >
-              {tpl.name}
-            </button>
-          ))}
-        </div>
+      {/* Quick Presets */}
+      <div className="flex flex-wrap gap-1.5">
+        {BUDGET_TEMPLATES.map((tpl) => (
+          <button
+            key={tpl.id}
+            type="button"
+            onClick={() => handleApplyTemplate(tpl.buckets)}
+            className="px-2.5 py-1 rounded-md text-[11px] font-semibold text-muted hover:text-primary transition-colors"
+            style={{ background: 'var(--bg-2)', border: '1px solid var(--border)' }}
+          >
+            {tpl.name}
+          </button>
+        ))}
       </div>
 
       {/* Allocation Bar */}
-      <div className="h-3 w-full bg-slate-800 rounded-full overflow-hidden flex">
+      <div className="h-2.5 w-full rounded-full overflow-hidden flex" style={{ background: 'var(--bg-3)' }}>
         {tempCategories.map((cat) => (
           <div
             key={cat.id}
@@ -199,39 +188,38 @@ export const SalaryAllocationCard = () => {
         ))}
       </div>
 
-      {/* Editable Bucket Rows */}
-      <div className="space-y-2.5">
+      {/* Bucket List */}
+      <div className="space-y-2">
         {tempCategories.map((cat) => {
           const nominal = Math.round((simulatorSalary * (Number(cat.percentage) || 0)) / 100);
           return (
             <div
               key={cat.id}
-              className="bg-[#0d1117] p-3 rounded-2xl border border-white/5 flex items-center justify-between gap-2"
+              className="px-3 py-2.5 rounded-lg flex items-center justify-between gap-2"
+              style={{ background: 'var(--bg-2)', border: '1px solid var(--border)' }}
             >
               <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                <div
-                  className="w-3 h-9 rounded-md flex-shrink-0"
-                  style={{ backgroundColor: cat.color }}
-                />
+                <div className="w-2.5 h-8 rounded flex-shrink-0" style={{ backgroundColor: cat.color }} />
                 <div className="min-w-0 flex-1">
                   <input
                     type="text"
                     value={cat.name}
                     onChange={(e) => handleNameChange(cat.id, e.target.value)}
-                    className="w-full bg-transparent font-bold text-white text-xs focus:outline-none focus:text-emerald-300 truncate"
+                    className="w-full bg-transparent font-bold text-xs text-primary focus:outline-none truncate"
                   />
-                  <span className="text-[11px] font-extrabold text-emerald-400 block">
-                    {formatRupiah(nominal)}
-                  </span>
+                  <span className="text-[11px] font-semibold text-accent block">{formatRupiah(nominal)}</span>
                 </div>
               </div>
 
               <div className="flex items-center gap-1 flex-shrink-0">
-                <div className="flex items-center gap-0.5 bg-[#16191f] border border-white/10 rounded-xl p-1">
+                <div
+                  className="flex items-center gap-0.5 rounded-md p-0.5"
+                  style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}
+                >
                   <button
                     type="button"
                     onClick={() => handleAdjustStep(cat.id, -5)}
-                    className="px-1.5 py-0.5 text-[10px] text-slate-400 hover:text-white font-bold"
+                    className="px-1.5 py-0.5 text-[10px] text-muted hover:text-primary font-bold"
                   >
                     -5
                   </button>
@@ -241,13 +229,13 @@ export const SalaryAllocationCard = () => {
                     max="100"
                     value={cat.percentage}
                     onChange={(e) => handlePercentageChange(cat.id, e.target.value)}
-                    className="w-9 bg-transparent text-center text-xs font-extrabold text-white focus:outline-none"
+                    className="w-9 bg-transparent text-center text-xs font-bold text-primary focus:outline-none"
                   />
-                  <span className="text-[10px] font-bold text-slate-400">%</span>
+                  <span className="text-[10px] text-muted font-bold">%</span>
                   <button
                     type="button"
                     onClick={() => handleAdjustStep(cat.id, 5)}
-                    className="px-1.5 py-0.5 text-[10px] text-slate-400 hover:text-white font-bold"
+                    className="px-1.5 py-0.5 text-[10px] text-muted hover:text-primary font-bold"
                   >
                     +5
                   </button>
@@ -256,8 +244,8 @@ export const SalaryAllocationCard = () => {
                 <button
                   type="button"
                   onClick={() => handleRemoveCategory(cat.id)}
-                  className="p-1.5 text-slate-500 hover:text-rose-400 rounded-lg"
-                  title="Hapus Pos"
+                  className="p-1 text-dim hover:text-rose-400"
+                  title="Remove bucket"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
@@ -267,48 +255,53 @@ export const SalaryAllocationCard = () => {
         })}
       </div>
 
-      {/* Add Custom Bucket */}
-      <div className="pt-2 border-t border-white/5">
+      {/* Add Bucket */}
+      <div>
         {showAddForm ? (
-          <form onSubmit={handleAddCategory} className="flex flex-wrap items-center gap-2 bg-[#0d1117] p-3 rounded-2xl border border-white/10">
+          <form
+            onSubmit={handleAddCategory}
+            className="flex flex-wrap items-center gap-2 p-2.5 rounded-lg"
+            style={{ background: 'var(--bg-2)', border: '1px solid var(--border)' }}
+          >
             <input
               type="text"
-              placeholder="Nama Pos (mis: Investasi)"
+              placeholder="Bucket name (e.g. Investments)"
               value={newCatName}
               onChange={(e) => setNewCatName(e.target.value)}
-              className="flex-1 min-w-[140px] bg-[#16191f] border border-white/10 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-emerald-400"
+              className="flex-1 min-w-[140px] y-input px-2.5 py-1.5 text-xs"
               required
             />
             <input
               type="number"
               value={newCatPercent}
               onChange={(e) => setNewCatPercent(e.target.value)}
-              className="w-14 bg-[#16191f] border border-white/10 text-center text-xs font-bold text-white rounded-xl py-2"
+              className="w-14 y-input px-2 py-1.5 text-center text-xs font-bold"
             />
             <input
               type="color"
               value={newCatColor}
               onChange={(e) => setNewCatColor(e.target.value)}
-              className="w-8 h-8 rounded-lg border-0 cursor-pointer bg-transparent"
+              className="w-7 h-7 rounded border-0 cursor-pointer bg-transparent"
             />
-            <button type="submit" className="px-3 py-2 rounded-xl bg-emerald-500 text-slate-950 font-bold text-xs">
-              Tambah
+            <button type="submit" className="px-3 py-1.5 rounded-md y-btn-accent text-xs">
+              Add
             </button>
             <button
               type="button"
               onClick={() => setShowAddForm(false)}
-              className="px-2.5 py-2 rounded-xl bg-slate-800 text-slate-400 text-xs"
+              className="px-2.5 py-1.5 rounded-md text-xs text-muted hover:text-primary"
             >
-              Batal
+              Cancel
             </button>
           </form>
         ) : (
           <button
             type="button"
             onClick={() => setShowAddForm(true)}
-            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-2xl bg-white/5 hover:bg-white/10 text-slate-200 text-xs font-bold border border-dashed border-white/15"
+            className="w-full py-2 rounded-lg text-xs font-semibold text-muted hover:text-primary flex items-center justify-center gap-1.5"
+            style={{ background: 'var(--bg-2)', border: '1px dashed var(--border-strong)' }}
           >
-            <Plus className="w-4 h-4 text-emerald-400" /> Tambah Pos Anggaran Baru
+            <Plus className="w-3.5 h-3.5 text-accent" /> Add Custom Budget Bucket
           </button>
         )}
       </div>

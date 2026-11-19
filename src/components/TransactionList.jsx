@@ -1,16 +1,9 @@
 import React, { useState } from 'react';
-import { Search, Download, Trash2, Coffee, ShoppingBag, CreditCard, Music } from 'lucide-react';
+import { Search, Download, Trash2, ArrowUpRight, ArrowDownLeft } from 'lucide-react';
 import { useFinance } from '../context/FinanceContext';
 import { formatRupiah, formatTanggal } from '../utils/formatters';
 
-const ICON_PASTELS = [
-  { bg: 'bg-[#ffaaa5]/20', text: 'text-[#ffaaa5]', icon: Coffee },
-  { bg: 'bg-[#8ee4af]/20', text: 'text-[#8ee4af]', icon: ShoppingBag },
-  { bg: 'bg-[#fbe7c6]/20', text: 'text-[#fbe7c6]', icon: CreditCard },
-  { bg: 'bg-[#90cdf4]/20', text: 'text-[#90cdf4]', icon: Music }
-];
-
-export const TransactionList = () => {
+export const TransactionList = ({ maxItems = null, onViewAll = null }) => {
   const { transactions, deleteTransaction } = useFinance();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -30,8 +23,7 @@ export const TransactionList = () => {
     if (dateFilter === 'today') {
       matchesDate = txDate.toDateString() === now.toDateString();
     } else if (dateFilter === 'week') {
-      const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-      matchesDate = txDate >= oneWeekAgo;
+      matchesDate = txDate >= new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
     } else if (dateFilter === 'month') {
       matchesDate = txDate.getMonth() === now.getMonth() && txDate.getFullYear() === now.getFullYear();
     }
@@ -39,13 +31,14 @@ export const TransactionList = () => {
     return matchesSearch && matchesDate;
   });
 
+  const visibleList = maxItems ? filteredTransactions.slice(0, maxItems) : filteredTransactions;
+
   const handleExportCSV = () => {
     if (transactions.length === 0) return;
-
-    const headers = ['Tanggal', 'Tipe', 'Nominal', 'Pos Anggaran', 'Dompet', 'Merchant', 'Catatan'];
+    const headers = ['Date', 'Type', 'Amount', 'Bucket', 'Wallet', 'Merchant', 'Notes'];
     const rows = transactions.map((t) => [
       `"${formatTanggal(t.transactionDate)}"`,
-      `"${t.type === 'income' ? 'Pemasukan' : 'Pengeluaran'}"`,
+      `"${t.type === 'income' ? 'Income' : 'Expense'}"`,
       t.amount,
       `"${t.bucketName || t.categoryName || ''}"`,
       `"${t.walletName || ''}"`,
@@ -63,97 +56,110 @@ export const TransactionList = () => {
   };
 
   return (
-    <div className="space-y-3.5 mb-6">
-      <div className="flex items-center justify-between px-1">
-        <h3 className="font-extrabold text-white text-base tracking-tight">Riwayat Transaksi</h3>
-        <button
-          onClick={handleExportCSV}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#1e2229] hover:bg-[#282d36] text-slate-300 text-xs font-bold border border-white/5"
-        >
-          <Download className="w-3.5 h-3.5 text-[#8ee4af]" /> CSV
-        </button>
-      </div>
-
-      <div className="flex items-center gap-2 overflow-x-auto pb-1">
-        {[
-          { key: 'all', label: 'Semua' },
-          { key: 'today', label: 'Hari Ini' },
-          { key: 'week', label: '7 Hari' },
-          { key: 'month', label: 'Bulan Ini' }
-        ].map((btn) => (
+    <div className="y-card p-4 space-y-3">
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="font-bold text-sm tracking-tight">
+          {maxItems ? 'Recent Transactions' : `Transaction History (${filteredTransactions.length})`}
+        </h3>
+        <div className="flex items-center gap-2">
+          {onViewAll && maxItems && (
+            <button onClick={onViewAll} className="text-xs font-semibold text-accent hover:underline">
+              View All
+            </button>
+          )}
           <button
-            key={btn.key}
-            onClick={() => setDateFilter(btn.key)}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
-              dateFilter === btn.key
-                ? 'bg-[#8ee4af] text-slate-950 shadow-md'
-                : 'bg-[#16191f] text-slate-400 hover:text-white border border-white/5'
-            }`}
+            onClick={handleExportCSV}
+            className="flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold text-muted hover:text-primary"
+            style={{ background: 'var(--bg-2)', border: '1px solid var(--border)' }}
           >
-            {btn.label}
+            <Download className="w-3 h-3 text-accent" /> CSV
           </button>
-        ))}
+        </div>
       </div>
 
-      <div className="relative">
-        <Search className="w-4 h-4 absolute left-3.5 top-3 text-slate-500" />
-        <input
-          type="text"
-          placeholder="Cari merchant, pos anggaran..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full bg-[#16191f] border border-white/5 text-white rounded-2xl pl-10 pr-4 py-2.5 text-xs focus:outline-none focus:border-[#8ee4af]"
-        />
-      </div>
+      {!maxItems && (
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative flex-1 min-w-[160px]">
+            <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-muted" />
+            <input
+              type="text"
+              placeholder="Search merchant or bucket..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full y-input pl-8 pr-3 py-1.5 text-xs"
+            />
+          </div>
+          <div className="flex items-center gap-1">
+            {[
+              { key: 'all', label: 'All' },
+              { key: 'today', label: 'Today' },
+              { key: 'week', label: '7D' },
+              { key: 'month', label: 'Month' }
+            ].map((btn) => (
+              <button
+                key={btn.key}
+                onClick={() => setDateFilter(btn.key)}
+                className={`px-2.5 py-1.5 rounded-md text-[11px] font-semibold transition-all ${
+                  dateFilter === btn.key ? 'y-pill-accent' : 'text-muted hover:text-primary'
+                }`}
+                style={dateFilter !== btn.key ? { background: 'var(--bg-2)', border: '1px solid var(--border)' } : undefined}
+              >
+                {btn.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
-      <div className="space-y-2.5">
-        {filteredTransactions.length === 0 ? (
-          <div className="text-center py-8 text-slate-500 text-xs font-medium dark-card rounded-[24px]">
-            Belum ada transaksi.
+      <div className="space-y-1.5">
+        {visibleList.length === 0 ? (
+          <div
+            className="text-center py-6 text-xs text-muted rounded-lg"
+            style={{ background: 'var(--bg-2)', border: '1px solid var(--border)' }}
+          >
+            No transactions recorded yet.
           </div>
         ) : (
-          filteredTransactions.map((tx, idx) => {
-            const styleObj = ICON_PASTELS[idx % ICON_PASTELS.length];
-            const IconComponent = styleObj.icon;
-            const title = tx.merchant || tx.recipientMerchant || 'Transaksi';
+          visibleList.map((tx) => {
+            const isIncome = tx.type === 'income';
+            const title = tx.merchant || tx.recipientMerchant || 'Transaction';
             const bucketLabel = tx.bucketName || tx.categoryName || '';
 
             return (
               <div
                 key={tx.id}
-                className="dark-card p-3.5 rounded-[22px] flex items-center justify-between gap-3 hover:bg-[#1a1e24] transition-all group"
+                className="px-3 py-2.5 rounded-lg flex items-center justify-between gap-3 group transition-colors"
+                style={{ background: 'var(--bg-2)', border: '1px solid var(--border)' }}
               >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className={`w-10 h-10 rounded-full ${styleObj.bg} ${styleObj.text} flex items-center justify-center flex-shrink-0`}>
-                    <IconComponent className="w-4 h-4" />
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div
+                    className={`w-7 h-7 rounded-md flex items-center justify-center flex-shrink-0 ${
+                      isIncome ? 'bg-emerald-500/15 text-emerald-400' : 'bg-rose-500/15 text-rose-400'
+                    }`}
+                  >
+                    {isIncome ? <ArrowDownLeft className="w-3.5 h-3.5" /> : <ArrowUpRight className="w-3.5 h-3.5" />}
                   </div>
 
                   <div className="min-w-0">
-                    <h4 className="font-bold text-white text-sm truncate">{title}</h4>
-                    <div className="flex items-center gap-1.5 mt-0.5 text-[10px] font-semibold text-slate-400">
-                      {bucketLabel && <span className="text-emerald-400/90 truncate">{bucketLabel}</span>}
-                      <span>•</span>
-                      <span>{formatTanggal(tx.transactionDate)}</span>
-                    </div>
+                    <p className="font-semibold text-xs truncate">{title}</p>
+                    <p className="text-[10px] text-muted truncate">
+                      {bucketLabel && <span className="text-accent font-medium">{bucketLabel}</span>}
+                      {bucketLabel && ' • '}
+                      {tx.walletName || 'Wallet'} • {formatTanggal(tx.transactionDate)}
+                    </p>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2 flex-shrink-0">
-                  <span
-                    className={`text-xs font-extrabold ${
-                      tx.type === 'income' ? 'text-[#8ee4af]' : 'text-[#ffaaa5]'
-                    }`}
-                  >
-                    {tx.type === 'income' ? '+' : '-'}
-                    {formatRupiah(tx.amount)}
+                  <span className={`text-xs font-bold ${isIncome ? 'text-emerald-400' : 'text-rose-400'}`}>
+                    {isIncome ? '+' : '-'}{formatRupiah(tx.amount)}
                   </span>
-
                   <button
                     onClick={() => deleteTransaction(tx.id)}
-                    className="p-1.5 text-slate-600 hover:text-[#ffaaa5] opacity-0 group-hover:opacity-100 transition-all"
-                    title="Hapus"
+                    className="p-1 text-dim hover:text-rose-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                    title="Delete"
                   >
-                    <Trash2 className="w-4 h-4" />
+                    <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </div>
               </div>

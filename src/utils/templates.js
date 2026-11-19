@@ -3,42 +3,42 @@
 export const BUDGET_TEMPLATES = [
   {
     id: 'balanced',
-    name: 'Seimbang (40-20-20-10-10)',
-    subtitle: 'Cocok untuk gaji tetap dengan cicilan & dana darurat',
+    name: 'Balanced (40-20-20-10-10)',
+    subtitle: 'Great for fixed salaries with installments & emergency reserves',
     buckets: [
-      { name: 'Kebutuhan Pokok', percentage: 40, color: '#10b981', icon: 'ShoppingCart' },
-      { name: 'Tabungan & Investasi', percentage: 20, color: '#3b82f6', icon: 'PiggyBank' },
-      { name: 'Cicilan & Utang', percentage: 20, color: '#f43f5e', icon: 'CreditCard' },
-      { name: 'Self Reward & Hiburan', percentage: 10, color: '#f59e0b', icon: 'Gift' },
-      { name: 'Dana Darurat', percentage: 10, color: '#8b5cf6', icon: 'ShieldAlert' }
+      { name: 'Essentials', percentage: 40, color: '#34d399', icon: 'ShoppingCart' },
+      { name: 'Savings & Investments', percentage: 20, color: '#60a5fa', icon: 'PiggyBank' },
+      { name: 'Bills & Debt', percentage: 20, color: '#fb7185', icon: 'CreditCard' },
+      { name: 'Lifestyle & Fun', percentage: 10, color: '#fbbf24', icon: 'Gift' },
+      { name: 'Emergency Fund', percentage: 10, color: '#c084fc', icon: 'ShieldAlert' }
     ]
   },
   {
     id: 'classic',
-    name: 'Klasik (50-30-20)',
-    subtitle: 'Simpel: 50% kebutuhan, 30% gaya hidup, 20% tabungan',
+    name: 'Classic (50-30-20)',
+    subtitle: 'Simple rule: 50% needs, 30% wants, 20% savings',
     buckets: [
-      { name: 'Kebutuhan Utama', percentage: 50, color: '#10b981', icon: 'ShoppingCart' },
-      { name: 'Keinginan & Gaya Hidup', percentage: 30, color: '#f43f5e', icon: 'Gift' },
-      { name: 'Tabungan & Investasi', percentage: 20, color: '#3b82f6', icon: 'PiggyBank' }
+      { name: 'Needs', percentage: 50, color: '#34d399', icon: 'ShoppingCart' },
+      { name: 'Wants & Lifestyle', percentage: 30, color: '#fb7185', icon: 'Gift' },
+      { name: 'Savings & Investments', percentage: 20, color: '#60a5fa', icon: 'PiggyBank' }
     ]
   },
   {
     id: 'debt_free',
-    name: 'Bebas Cicilan (60-25-15)',
-    subtitle: 'Fokus kebutuhan harian & percepat tabungan',
+    name: 'Debt-Free Focus (60-25-15)',
+    subtitle: 'Daily living focus with accelerated savings',
     buckets: [
-      { name: 'Kebutuhan Pokok', percentage: 60, color: '#10b981', icon: 'ShoppingCart' },
-      { name: 'Tabungan & Investasi', percentage: 25, color: '#3b82f6', icon: 'PiggyBank' },
-      { name: 'Self Reward', percentage: 15, color: '#f59e0b', icon: 'Gift' }
+      { name: 'Living Essentials', percentage: 60, color: '#34d399', icon: 'ShoppingCart' },
+      { name: 'Savings & Investments', percentage: 25, color: '#60a5fa', icon: 'PiggyBank' },
+      { name: 'Personal & Fun', percentage: 15, color: '#fbbf24', icon: 'Gift' }
     ]
   },
   {
     id: 'blank',
-    name: 'Mulai Kosong (Custom)',
-    subtitle: 'Buat pos anggaran sendiri sesuai gaya hidupmu',
+    name: 'Start Blank (Custom)',
+    subtitle: 'Create your own budget buckets from scratch',
     buckets: [
-      { name: 'Pengeluaran Umum', percentage: 100, color: '#10b981', icon: 'Tag' }
+      { name: 'General Budget', percentage: 100, color: '#34d399', icon: 'Tag' }
     ]
   }
 ];
@@ -52,22 +52,22 @@ export const STARTER_WALLET_SUGGESTIONS = [
   { name: 'OVO', type: 'ewallet', color: '#4c2a86' },
   { name: 'DANA', type: 'ewallet', color: '#118eea' },
   { name: 'ShopeePay', type: 'ewallet', color: '#ee4d2d' },
-  { name: 'Dompet Tunai', type: 'cash', color: '#10b981' }
+  { name: 'Cash Wallet', type: 'cash', color: '#34d399' }
 ];
 
 export const STARTER_QUICK_ACTIONS = [
-  { title: 'Kopi', amount: 18000, color: '#f43f5e', icon: 'Coffee' },
-  { title: 'Makan', amount: 35000, color: '#10b981', icon: 'Utensils' },
-  { title: 'Transport', amount: 25000, color: '#3b82f6', icon: 'Bus' }
+  { title: 'Coffee', amount: 18000, color: '#fb7185', icon: 'Coffee' },
+  { title: 'Lunch', amount: 35000, color: '#34d399', icon: 'Utensils' },
+  { title: 'Transport', amount: 25000, color: '#60a5fa', icon: 'Bus' }
 ];
 
 export const BUCKET_COLOR_SWATCHES = [
-  '#10b981',
-  '#3b82f6',
-  '#f43f5e',
-  '#f59e0b',
-  '#8b5cf6',
-  '#06b6d4',
-  '#ec4899',
-  '#84cc16'
+  '#34d399',
+  '#60a5fa',
+  '#fb7185',
+  '#fbbf24',
+  '#c084fc',
+  '#67e8f9',
+  '#818cf8',
+  '#fdba74'
 ];

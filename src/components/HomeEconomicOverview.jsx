@@ -4,12 +4,7 @@ import confetti from 'canvas-confetti';
 import { useFinance } from '../context/FinanceContext';
 import { formatRupiah, parseRupiahInput } from '../utils/formatters';
 
-const ICON_MAP = {
-  Coffee,
-  Utensils,
-  Bus,
-  Zap
-};
+const ICON_MAP = { Coffee, Utensils, Bus, Zap };
 
 export const HomeEconomicOverview = ({ onOpenAddTransaction }) => {
   const {
@@ -29,7 +24,7 @@ export const HomeEconomicOverview = ({ onOpenAddTransaction }) => {
   const [qaAmount, setQaAmount] = useState('');
 
   const categoriesWithSpending = categoryStats.filter((c) => c.spentAmount > 0);
-  const displayCategories = categoriesWithSpending.length > 0 ? categoriesWithSpending : categoryStats.slice(0, 3);
+  const displayCategories = categoriesWithSpending.length > 0 ? categoriesWithSpending : categoryStats.slice(0, 4);
 
   const radius = 36;
   const circumference = 2 * Math.PI * radius;
@@ -45,11 +40,10 @@ export const HomeEconomicOverview = ({ onOpenAddTransaction }) => {
 
     return {
       ...cat,
-      fraction,
       strokeDasharray,
       strokeDashoffset,
       sharePercent,
-      color: cat.color || '#10b981'
+      color: cat.color || '#34d399'
     };
   });
 
@@ -58,21 +52,20 @@ export const HomeEconomicOverview = ({ onOpenAddTransaction }) => {
     const matchedWallet = wallets.find((w) => w.id === qa.walletId) || wallets[0];
 
     confetti({
-      particleCount: 22,
-      spread: 55,
-      origin: { y: 0.8 },
-      colors: [qa.color || '#10b981', '#10b981', '#3b82f6']
+      particleCount: 18,
+      spread: 50,
+      origin: { y: 0.75 }
     });
 
     addTransaction({
       type: 'expense',
       amount: Number(qa.amount) || 0,
       bucketId: matchedCat?.id || null,
-      bucketName: matchedCat?.name || qa.bucketName || 'Umum',
+      bucketName: matchedCat?.name || qa.bucketName || 'General',
       walletId: matchedWallet?.id || null,
-      walletName: matchedWallet?.name || 'Dompet',
+      walletName: matchedWallet?.name || 'Wallet',
       merchant: qa.title,
-      notes: 'Catat Cepat 1-Klik',
+      notes: '1-Click Quick Entry',
       transactionDate: new Date().toISOString()
     });
   };
@@ -85,9 +78,9 @@ export const HomeEconomicOverview = ({ onOpenAddTransaction }) => {
       title: qaTitle.trim(),
       amount: amt,
       bucketId: categories[0]?.id || null,
-      bucketName: categories[0]?.name || 'Umum',
+      bucketName: categories[0]?.name || 'General',
       walletId: wallets[0]?.id || null,
-      color: '#10b981',
+      color: '#34d399',
       icon: 'Zap'
     });
     setQaTitle('');
@@ -96,31 +89,26 @@ export const HomeEconomicOverview = ({ onOpenAddTransaction }) => {
   };
 
   return (
-    <div className="flex flex-col h-full justify-between space-y-3.5">
-      {/* 1. Economic Overview Donut Card */}
-      <div className="modern-glass-card p-5 rounded-[32px] space-y-3 relative overflow-hidden flex-1 flex flex-col justify-between">
-        <div className="absolute top-0 right-0 w-28 h-28 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none" />
-
-        <div className="flex items-center justify-between relative z-10">
+    <div className="space-y-4">
+      {/* Compact Spending Donut Card */}
+      <div className="y-card p-4 space-y-4">
+        <div className="flex items-center justify-between">
           <div>
-            <h1 className="font-black text-white text-lg tracking-tight">Economic Overview</h1>
-            <span className="text-[11px] font-semibold text-slate-400 block mt-0.5">
-              Total Pengeluaran Bulan Ini
-            </span>
+            <h2 className="font-bold text-sm tracking-tight">Spending Overview</h2>
+            <span className="text-[11px] text-muted">Current cycle breakdown</span>
           </div>
           <button
             onClick={onOpenAddTransaction}
-            className="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-400 to-teal-400 text-slate-950 flex items-center justify-center font-black shadow-md active:scale-95 transition-all"
-            title="Tambah Transaksi"
+            className="w-7 h-7 rounded-md y-btn-accent flex items-center justify-center"
+            title="Add Entry"
           >
-            <Plus className="w-5 h-5 stroke-[3]" />
+            <Plus className="w-4 h-4 stroke-[2.5]" />
           </button>
         </div>
 
-        {/* Central Donut Chart */}
-        <div className="relative py-1 flex items-center justify-center">
-          <svg className="w-52 h-52 transform -rotate-90" viewBox="0 0 100 100">
-            <circle cx="50" cy="50" r="36" stroke="#161b22" strokeWidth="11" fill="transparent" />
+        <div className="relative flex items-center justify-center py-1">
+          <svg className="w-44 h-44 transform -rotate-90" viewBox="0 0 100 100">
+            <circle cx="50" cy="50" r="36" stroke="var(--bg-3)" strokeWidth="10" fill="transparent" />
             {donutSlices.map((slice) => (
               <circle
                 key={slice.id}
@@ -128,143 +116,102 @@ export const HomeEconomicOverview = ({ onOpenAddTransaction }) => {
                 cy="50"
                 r="36"
                 stroke={slice.color}
-                strokeWidth="11"
+                strokeWidth="10"
                 strokeDasharray={slice.strokeDasharray}
                 strokeDashoffset={slice.strokeDashoffset}
                 fill="transparent"
                 strokeLinecap="round"
-                className="transition-all duration-700"
+                className="transition-all duration-500"
               />
             ))}
           </svg>
 
-          <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-6">
-            <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">
-              Total Spending
-            </span>
-            <span className="text-lg font-black text-white tracking-tight mt-0.5">
-              {formatRupiah(totalExpenses)}
-            </span>
-            <span className="text-[9px] font-bold text-slate-400 mt-0.5 uppercase tracking-wider">
-              Dari Dana Masuk
-            </span>
-            <span className="text-xs font-black text-emerald-400 mt-0.5">
-              {formatRupiah(totalIncome)}
+          <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-4">
+            <span className="text-[9px] font-bold text-muted uppercase tracking-wider">Spent</span>
+            <span className="text-base font-extrabold tracking-tight">{formatRupiah(totalExpenses)}</span>
+            <span className="text-[10px] font-semibold text-accent mt-0.5">
+              of {formatRupiah(totalIncome)}
             </span>
           </div>
-
-          {donutSlices.slice(0, 3).map((slice, idx) => {
-            const positions = ['top-1 right-2', 'bottom-4 left-3', 'right-1 top-1/2'];
-            return (
-              <div
-                key={slice.id}
-                className={`absolute ${positions[idx % positions.length]} bg-[#161b22]/90 backdrop-blur-md px-2 py-0.5 rounded-lg border border-white/10 shadow-lg text-[9px] font-black text-slate-100 flex items-center gap-1`}
-              >
-                <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: slice.color }} />
-                {formatRupiah(slice.spentAmount > 0 ? slice.spentAmount : slice.allocatedAmount)}
-              </div>
-            );
-          })}
         </div>
 
-        {/* Legend Breakdown */}
-        <div className="grid grid-cols-3 gap-2 pt-3 border-t border-white/10">
+        {/* Compact Legend */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-3" style={{ borderTop: '1px solid var(--border)' }}>
           {donutSlices.slice(0, 3).map((slice) => (
-            <div key={slice.id} className="text-left space-y-0.5">
-              <span className="text-[10px] font-semibold text-slate-400 truncate block">
-                {slice.name}
-              </span>
-              <span className="text-base font-black text-white block leading-none">
-                {slice.sharePercent}%
-              </span>
-              <div
-                className="h-1 w-full rounded-full mt-1"
-                style={{ backgroundColor: slice.color }}
-              />
+            <div key={slice.id} className="space-y-1">
+              <span className="text-[10px] text-muted truncate block">{slice.name}</span>
+              <span className="text-sm font-extrabold block leading-none">{slice.sharePercent}%</span>
+              <div className="h-1 w-full rounded-full" style={{ backgroundColor: slice.color }} />
             </div>
           ))}
         </div>
       </div>
 
-      {/* 2. Fluid 1-Click Quick Expense Chips */}
-      <div className="space-y-2">
-        {showAddQuick ? (
-          <form
-            onSubmit={handleCreateQuickAction}
-            className="p-2.5 rounded-2xl bg-[#161b22] border border-white/10 flex items-center gap-2"
+      {/* Compact Quick Expense Shortcuts */}
+      <div className="y-card p-4 space-y-2.5">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-bold">Quick Expense Shortcuts</span>
+          <button
+            onClick={() => setShowAddQuick((v) => !v)}
+            className="text-[11px] font-semibold text-accent hover:underline"
           >
+            {showAddQuick ? 'Cancel' : '+ Add Shortcut'}
+          </button>
+        </div>
+
+        {showAddQuick && (
+          <form onSubmit={handleCreateQuickAction} className="flex items-center gap-1.5">
             <input
               type="text"
-              placeholder="Nama (mis: Parkir)"
+              placeholder="Label (e.g. Parking)"
               value={qaTitle}
               onChange={(e) => setQaTitle(e.target.value)}
-              className="flex-1 min-w-0 bg-[#0d1117] border border-white/10 rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-400"
+              className="flex-1 min-w-0 y-input px-2.5 py-1.5 text-xs"
               required
             />
             <input
               type="number"
-              placeholder="Rp"
+              placeholder="IDR"
               value={qaAmount}
               onChange={(e) => setQaAmount(e.target.value)}
-              className="w-20 bg-[#0d1117] border border-white/10 rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-400"
+              className="w-20 y-input px-2.5 py-1.5 text-xs"
               required
             />
-            <button
-              type="submit"
-              className="px-2.5 py-1.5 rounded-xl bg-emerald-500 text-slate-950 font-black text-xs"
-            >
-              OK
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowAddQuick(false)}
-              className="p-1.5 text-slate-400 hover:text-white"
-            >
-              <X className="w-3.5 h-3.5" />
+            <button type="submit" className="px-3 py-1.5 rounded-md y-btn-accent text-xs">
+              Add
             </button>
           </form>
-        ) : (
-          <div className="flex items-center gap-2 overflow-x-auto pb-0.5">
-            {quickActions.map((qa) => {
-              const IconComp = ICON_MAP[qa.icon] || Zap;
-              return (
-                <div
-                  key={qa.id}
-                  className="relative group flex-shrink-0 min-w-[108px]"
-                >
-                  <button
-                    onClick={() => handleQuickAdd(qa)}
-                    className="w-full p-2.5 rounded-2xl bg-[#161b22]/90 border border-white/10 text-left hover:bg-[#21262d] transition-all active:scale-95"
-                  >
-                    <div className="flex items-center gap-1.5 text-xs font-bold text-slate-200 truncate pr-3">
-                      <IconComp className="w-3.5 h-3.5 flex-shrink-0" style={{ color: qa.color || '#10b981' }} />
-                      <span className="truncate">{qa.title}</span>
-                    </div>
-                    <span className="text-[10px] font-black text-emerald-400 block mt-0.5">
-                      + {formatRupiah(qa.amount)}
-                    </span>
-                  </button>
-                  <button
-                    onClick={() => deleteQuickAction(qa.id)}
-                    title="Hapus Shortcut"
-                    className="absolute top-1 right-1 p-0.5 rounded-full bg-black/50 text-slate-400 hover:text-rose-400 opacity-0 group-hover:opacity-100 transition-opacity"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                </div>
-              );
-            })}
-
-            <button
-              onClick={() => setShowAddQuick(true)}
-              className="flex-shrink-0 p-2.5 px-3 rounded-2xl bg-white/5 hover:bg-white/10 border border-dashed border-white/15 text-slate-400 hover:text-white flex flex-col items-center justify-center transition-all"
-              title="Tambah Shortcut Catat Cepat"
-            >
-              <Plus className="w-4 h-4" />
-              <span className="text-[9px] font-bold mt-0.5">Shortcut</span>
-            </button>
-          </div>
         )}
+
+        <div className="grid grid-cols-3 gap-2">
+          {quickActions.map((qa) => {
+            const IconComp = ICON_MAP[qa.icon] || Zap;
+            return (
+              <div key={qa.id} className="relative group">
+                <button
+                  onClick={() => handleQuickAdd(qa)}
+                  className="w-full p-2.5 rounded-lg text-left transition-all active:scale-95"
+                  style={{ background: 'var(--bg-2)', border: '1px solid var(--border)' }}
+                >
+                  <div className="flex items-center gap-1.5 text-xs font-semibold truncate pr-3">
+                    <IconComp className="w-3.5 h-3.5 flex-shrink-0" style={{ color: qa.color || 'var(--color-accent)' }} />
+                    <span className="truncate">{qa.title}</span>
+                  </div>
+                  <span className="text-[10px] font-bold text-accent block mt-0.5">
+                    + {formatRupiah(qa.amount)}
+                  </span>
+                </button>
+                <button
+                  onClick={() => deleteQuickAction(qa.id)}
+                  title="Remove shortcut"
+                  className="absolute top-1 right-1 p-0.5 rounded bg-black/40 text-muted hover:text-rose-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
