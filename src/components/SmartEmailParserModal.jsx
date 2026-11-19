@@ -18,6 +18,7 @@ import {
   getStoredGmailToken
 } from '../services/emailParserService';
 import { BankLogo } from './BankLogo';
+import { autoAssignBucketAndWallet } from '../utils/smartCategorizer';
 import { formatRupiah, formatTanggal } from '../utils/formatters';
 
 export const SmartEmailParserModal = ({ isOpen, onClose }) => {
@@ -76,9 +77,18 @@ export const SmartEmailParserModal = ({ isOpen, onClose }) => {
 
       const defaults = {};
       found.forEach((r) => {
+        const smart = autoAssignBucketAndWallet({
+          merchant: r.parsed.recipientOrMerchant,
+          rawText: `${r.subject || ''} ${r.parsed.rawText || ''}`,
+          detectedWalletName: r.parsed.walletName,
+          buckets: categories,
+          wallets
+        });
         defaults[r.id] = {
-          bucketId: categories[0]?.id || '',
-          walletId: findBestWalletId(r.parsed.walletName)
+          bucketId: smart.bucketId,
+          walletId: smart.walletId,
+          intentLabel: smart.intentLabel,
+          matchedKeyword: smart.matchedKeyword
         };
       });
       setRowOverrides(defaults);
@@ -161,9 +171,16 @@ export const SmartEmailParserModal = ({ isOpen, onClose }) => {
 
     const result = parseBankEmailText(pasteText);
     if (result && result.isReceipt) {
-      setParsedData(result);
-      setSelectedCategoryId(categories[0]?.id || '');
-      setSelectedWalletId(findBestWalletId(result.walletName));
+      const smart = autoAssignBucketAndWallet({
+        merchant: result.recipientOrMerchant,
+        rawText: pasteText,
+        detectedWalletName: result.walletName,
+        buckets: categories,
+        wallets
+      });
+      setParsedData({ ...result, intentLabel: smart.intentLabel });
+      setSelectedCategoryId(smart.bucketId);
+      setSelectedWalletId(smart.walletId);
     } else {
       setParsedData(null);
       setErrorMsg(
@@ -355,7 +372,14 @@ export const SmartEmailParserModal = ({ isOpen, onClose }) => {
                             />
 
                             <div className="min-w-0">
-                              <p className="text-xs font-bold truncate">{item.parsed.recipientOrMerchant}</p>
+                              <div className="flex items-center gap-1.5">
+                                <p className="text-xs font-bold truncate">{item.parsed.recipientOrMerchant}</p>
+                                {override.intentLabel && (
+                                  <span className="y-pill-accent text-[9px] font-bold px-1.5 py-0.5 rounded flex-shrink-0">
+                                    {override.intentLabel}
+                                  </span>
+                                )}
+                              </div>
                               <p className="text-[10px] text-muted truncate">
                                 {item.parsed.walletName} • {item.parsed.transactionType} •{' '}
                                 {formatTanggal(item.parsed.transactionDate)}

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { X } from 'lucide-react';
+import { X, Sparkles } from 'lucide-react';
 import { useFinance } from '../context/FinanceContext';
+import { autoAssignBucketAndWallet } from '../utils/smartCategorizer';
 import { formatRupiah } from '../utils/formatters';
 
 export const TransactionFormModal = ({ isOpen, onClose, initialCategoryId }) => {
@@ -13,11 +14,37 @@ export const TransactionFormModal = ({ isOpen, onClose, initialCategoryId }) => 
   const [merchant, setMerchant] = useState('');
   const [notes, setNotes] = useState('');
   const [transactionDate, setTransactionDate] = useState(new Date().toISOString().slice(0, 16));
+  const [manualBucketOverride, setManualBucketOverride] = useState(false);
+  const [manualWalletOverride, setManualWalletOverride] = useState(false);
+  const [autoTag, setAutoTag] = useState('');
 
   useEffect(() => {
     if (categories.length > 0) setBucketId(initialCategoryId || categories[0].id);
     if (wallets.length > 0) setWalletId(wallets[0].id);
+    setManualBucketOverride(Boolean(initialCategoryId));
+    setManualWalletOverride(false);
+    setAutoTag('');
   }, [isOpen, initialCategoryId, categories, wallets]);
+
+  const handleMerchantChange = (val) => {
+    setMerchant(val);
+    if (type !== 'expense' || !val.trim()) {
+      setAutoTag('');
+      return;
+    }
+    const match = autoAssignBucketAndWallet({
+      merchant: val,
+      buckets: categories,
+      wallets
+    });
+    if (match.intentLabel) {
+      setAutoTag(match.intentLabel);
+      if (!manualBucketOverride && match.bucketId) setBucketId(match.bucketId);
+      if (!manualWalletOverride && match.walletId) setWalletId(match.walletId);
+    } else {
+      setAutoTag('');
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -98,7 +125,10 @@ export const TransactionFormModal = ({ isOpen, onClose, initialCategoryId }) => 
                 <label className="block text-[11px] font-semibold text-muted mb-1">Budget Bucket</label>
                 <select
                   value={bucketId}
-                  onChange={(e) => setBucketId(e.target.value)}
+                  onChange={(e) => {
+                    setBucketId(e.target.value);
+                    setManualBucketOverride(true);
+                  }}
                   className="w-full y-input px-2.5 py-2 text-xs"
                 >
                   {categories.map((c) => (
@@ -113,7 +143,10 @@ export const TransactionFormModal = ({ isOpen, onClose, initialCategoryId }) => 
                 <label className="block text-[11px] font-semibold text-muted mb-1">Wallet / Account</label>
                 <select
                   value={walletId}
-                  onChange={(e) => setWalletId(e.target.value)}
+                  onChange={(e) => {
+                    setWalletId(e.target.value);
+                    setManualWalletOverride(true);
+                  }}
                   className="w-full y-input px-2.5 py-2 text-xs"
                 >
                   {wallets.map((w) => (
@@ -125,14 +158,21 @@ export const TransactionFormModal = ({ isOpen, onClose, initialCategoryId }) => 
           </div>
 
           <div>
-            <label className="block text-[11px] font-semibold text-muted mb-1">
-              {type === 'expense' ? 'Merchant / Description' : 'Income Source'}
-            </label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-[11px] font-semibold text-muted">
+                {type === 'expense' ? 'Merchant / Description' : 'Income Source'}
+              </label>
+              {autoTag && (
+                <span className="y-pill-accent text-[9px] font-bold px-1.5 py-0.5 rounded flex items-center gap-1">
+                  <Sparkles className="w-2.5 h-2.5" /> Auto: {autoTag}
+                </span>
+              )}
+            </div>
             <input
               type="text"
-              placeholder={type === 'expense' ? 'e.g. Coffee Shop, Groceries' : 'e.g. Freelance, Bonus'}
+              placeholder={type === 'expense' ? 'e.g. MRT Jakarta, Famima, GoFood, Grab' : 'e.g. Freelance, Bonus'}
               value={merchant}
-              onChange={(e) => setMerchant(e.target.value)}
+              onChange={(e) => handleMerchantChange(e.target.value)}
               className="w-full y-input px-3 py-2 text-xs"
             />
           </div>

@@ -248,7 +248,7 @@ export const fetchBankEmailsFromGmail = async (accessToken, { days = 30, existin
     '-category:social',
     '-category:forums',
     '-subject:(promo OR diskon OR cashback OR voucher OR kupon OR OTP OR verifikasi OR newsletter OR penawaran OR "e-statement")',
-    `((${domainQuery}) OR ("Transfer Berhasil" OR "Transaksi Berhasil" OR "Pembayaran Berhasil" OR "Payment to" OR "Bukti Transaksi" OR "QRIS Payment"))`
+    `((${domainQuery}) OR ("Transfer Berhasil" OR "Transaksi Berhasil" OR "Pembayaran Berhasil" OR "Payment to" OR "Bukti Transaksi" OR "QRIS Payment" OR "Your Grab E-Receipt" OR "Gojek Receipt" OR "GoFood" OR "GrabFood" OR "Bluebird"))`
   ].join(' ');
 
   const listRes = await fetch(
