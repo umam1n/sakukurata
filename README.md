@@ -1,172 +1,67 @@
-# 📱 My Money Gueh - Personal Financial & Budget Manager (Android Native)
+# Sakukurata — Personal Finance & Flexible Budget Workspace
 
-A modern, high-performance **Native Android Financial Management Application** built using **Kotlin**, **Jetpack Compose**, and **Material 3 Design**, fully integrated with **Supabase Cloud REST API** for real-time multi-table database synchronization.
+A modern, cross-platform personal finance manager with a **compact desktop-first Web App (Vercel)** and a **Native Android App (Kotlin + Jetpack Compose)**—both synced in real time through a single free **Firebase Spark** backend.
 
----
-
-## ✨ Features & Highlights
-
-- **📊 Dynamic Economic Overview & Donut Chart**: Features a custom Canvas Donut Chart with a soft ambient radial gradient glow aura.
-- **🔢 Automated Thousands Separator (`2.000.000`)**: Live formatting across all numeric input fields (Salary, Wishlists, Transactions) to prevent typing errors.
-- **☁️ Full Supabase Cloud Sync**: Live bidirectional synchronization across 6 database tables (`transactions`, `wishlists`, `user_settings`, `salary_allocations`, `quick_actions`, `wallets`).
-- **🔐 PIN Security & Local Persistence**: Master Security Lock persisted in Android `SharedPreferences` (`keuanganku_security_prefs`).
-- **🎨 Sleek Dark Glassmorphism UI**: Floating bottom navigation bar with bouncy spring animations (`graphicsLayer` scale) and hardware-accelerated screen transitions (`Crossfade`).
-- **📩 Email API Integration**: Receipt generation & report sync configuration.
+Built for everyday public use with **zero manual SQL setup**: users sign up with Email or Google (or try Local Guest Mode immediately), complete a 3-step skippable onboarding, and customize every budget bucket, wallet, and shortcut anytime.
 
 ---
 
-## 📸 App Screenshots & UI Gallery
+## Key Features
 
-<div align="center">
-
-| Economic Overview | Wallets & History | Wishlist Savings | Salary Allocation | Settings & API |
-| :---: | :---: | :---: | :---: | :---: |
-| <img src="https://github.com/user-attachments/assets/46d9981b-40e8-4acb-a52f-1588b6cf8b31" width="200" alt="Economic Overview" /> | <img src="https://github.com/user-attachments/assets/1aad61f4-1cf1-4e62-8801-a26d47369a37" width="200" alt="Wallets & History" /> | <img src="https://github.com/user-attachments/assets/94238186-121d-4919-acc2-8b6a47c15876" width="200" alt="Wishlist Savings" /> | <img src="https://github.com/user-attachments/assets/5d4da204-8dc1-43dd-bb96-ff0bda865109" width="200" alt="Salary Allocation" /> | <img src="https://github.com/user-attachments/assets/2c070881-8e24-41d8-9f86-cbf1539701ce" width="200" alt="Settings & API" /> |
-
-</div>
+- **Compact Desktop Workspace & Responsive Mobile UI**: Slim icon-rail sidebar, 4-card KPI strip, multi-column bento dashboard, and clean mobile navigation.
+- **Theme & Color Palette Customizer**: Dark / Light mode toggle, 8 accent presets (*Emerald, Lavender, Cyan, Rose, Amber, Indigo, Peach, Mint*), plus a custom hex color picker.
+- **Fluid 100% Budget Allocator**: Start from a template (*40-20-20-10-10*, *50-30-20*, *60-25-15*, or *Blank*), rename/add/remove buckets anytime, use the **Auto-Fit 100%** balancer, and preview splits with an interactive Income Simulator.
+- **40+ Indonesian Banks & E-Wallets with Branded SVG Emblems**: Searchable directory covering national, private, digital (*Bank Jago, SeaBank, blu, Jenius, Neo, Allo, Superbank, Krom, LINE Bank, Bank Saqu*), Syariah (*BSI, Muamalat, BCA Syariah, Aladin*), regional BPDs, and e-wallets (*GoPay, OVO, DANA, ShopeePay, LinkAja, AstraPay, Flip*)—with inline editing and live thousands formatting.
+- **Serverless Gmail Bank Receipt Importer**: Connects directly in the browser via Google OAuth (`gmail.readonly`) with **strict promo/newsletter/OTP filtering**, expense vs. income detection, duplicate prevention, and **smart merchant auto-assignment** (e.g. *MRT, TransJakarta, Grab, Gojek* → Transportation; *GoFood, GrabFood, Famima, Kantin, Es Teh* → Food & Dining; undecided receipts default to Food & Dining).
+- **Savings Goals, Recurring Bills & CSV Export**: Track wishlist milestones with quick top-ups, toggle monthly bill status (*Paid / Due*), and export transaction history to CSV.
+- **Multi-Tenant Privacy**: Strict per-user Firestore Security Rules (`users/{uid}/**`) + built-in offline caching.
 
 ---
 
-## 🗄️ Supabase Database Setup Guide
+## Architecture
 
-Instead of maintaining separate `.sql` files, copy and paste the complete SQL DDL and Seed script below directly into your **Supabase SQL Editor** ([https://app.supabase.com](https://app.supabase.com)).
-
-### 📜 Complete Supabase SQL DDL & Seed Script
-
-```sql
--- Executable SQL Script with RLS ENABLED & PUBLIC POLICIES FOR SUPABASE
--- Run this script in your Supabase SQL Editor (https://app.supabase.com)
-
--- 1. DROP EXISTING TABLES
-DROP TABLE IF EXISTS public.quick_actions CASCADE;
-DROP TABLE IF EXISTS public.transactions CASCADE;
-DROP TABLE IF EXISTS public.salary_allocations CASCADE;
-DROP TABLE IF EXISTS public.user_settings CASCADE;
-DROP TABLE IF EXISTS public.wishlists CASCADE;
-DROP TABLE IF EXISTS public.wallets CASCADE;
-
--- 2. CREATE TRANSACTIONS TABLE
-CREATE TABLE public.transactions (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    merchant VARCHAR(255) NOT NULL,
-    amount BIGINT NOT NULL,
-    category VARCHAR(100) NOT NULL,
-    transaction_date DATE NOT NULL DEFAULT CURRENT_DATE,
-    is_expense BOOLEAN NOT NULL DEFAULT TRUE,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
--- 3. CREATE SALARY ALLOCATIONS TABLE
-CREATE TABLE public.salary_allocations (
-    id VARCHAR(50) PRIMARY KEY,
-    name VARCHAR(100) NOT NULL,
-    percentage INT NOT NULL,
-    color_hex VARCHAR(20) NOT NULL
-);
-
--- 4. CREATE QUICK ACTIONS TABLE
-CREATE TABLE public.quick_actions (
-    id VARCHAR(50) PRIMARY KEY,
-    title VARCHAR(100) NOT NULL,
-    amount BIGINT NOT NULL,
-    category VARCHAR(100) NOT NULL,
-    color_hex VARCHAR(20) NOT NULL
-);
-
--- 5. CREATE USER SETTINGS TABLE
-CREATE TABLE public.user_settings (
-    id INT PRIMARY KEY DEFAULT 1,
-    base_salary BIGINT NOT NULL DEFAULT 10000000,
-    payday_date INT NOT NULL DEFAULT 25,
-    email_service_active BOOLEAN NOT NULL DEFAULT TRUE,
-    recipient_email VARCHAR(255) NOT NULL DEFAULT 'user@example.com'
-);
-
--- 6. CREATE WISHLISTS TABLE
-CREATE TABLE public.wishlists (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    title VARCHAR(150) NOT NULL,
-    target_amount BIGINT NOT NULL,
-    current_saved BIGINT DEFAULT 0,
-    color_hex VARCHAR(20) DEFAULT '#5EB893',
-    created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- 7. ENABLE ROW LEVEL SECURITY (RLS)
-ALTER TABLE public.transactions ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.salary_allocations ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.quick_actions ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.user_settings ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.wishlists ENABLE ROW LEVEL SECURITY;
-
--- 8. CREATE RLS POLICIES FOR PUBLIC ACCESS
-CREATE POLICY "Allow public SELECT transactions" ON public.transactions FOR SELECT TO public USING (true);
-CREATE POLICY "Allow public INSERT transactions" ON public.transactions FOR INSERT TO public WITH CHECK (true);
-CREATE POLICY "Allow public UPDATE transactions" ON public.transactions FOR UPDATE TO public USING (true) WITH CHECK (true);
-CREATE POLICY "Allow public DELETE transactions" ON public.transactions FOR DELETE TO public USING (true);
-
-CREATE POLICY "Allow public ALL salary_allocations" ON public.salary_allocations FOR ALL TO public USING (true) WITH CHECK (true);
-CREATE POLICY "Allow public ALL quick_actions" ON public.quick_actions FOR ALL TO public USING (true) WITH CHECK (true);
-CREATE POLICY "Allow public ALL user_settings" ON public.user_settings FOR ALL TO public USING (true) WITH CHECK (true);
-CREATE POLICY "Allow public ALL wishlists" ON public.wishlists FOR ALL TO public USING (true) WITH CHECK (true);
-
--- 9. INSERT INITIAL SEED DATA
-INSERT INTO public.transactions (id, merchant, amount, category, transaction_date, is_expense) VALUES
-('27fa812b-cca0-4ca9-b9de-7a1767db6018', 'KPR BTN / Cicilan Rumah', 1200000, 'Cicilan & Utang', '2026-08-01', TRUE),
-('5ec056fe-04f9-418b-8a9a-29b8fe1fdb01', 'JUMP START COFFEE 1 - QRIS', 9900, 'Self Reward & Hiburan', '2026-08-01', TRUE),
-('79f3e488-2c66-4994-b98c-47f70af8c002', 'Bensin Pertamax Motor', 50000, 'Kebutuhan Pokok', '2026-07-31', TRUE),
-('c02bea2c-b474-497c-9020-0708465f0003', 'Belanja Supermarket Indomaret', 350000, 'Kebutuhan Pokok', '2026-08-01', TRUE),
-('c26eb23a-e879-4abe-81f3-ce6a83601004', 'Gaji Bulanan Utama', 10000000, 'Pemasukan Utama', '2026-07-25', FALSE),
-('c2adcf47-680f-4f90-83fd-2edfa8998005', 'Bonus Freelance Project', 2500000, 'Pemasukan Ekstra', '2026-08-01', FALSE);
-
-INSERT INTO public.salary_allocations (id, name, percentage, color_hex) VALUES
-('c1', 'Kebutuhan Pokok', 40, '#10B981'),
-('c2', 'Tabungan & Investasi', 20, '#3B82F6'),
-('c3', 'Cicilan & Utang', 20, '#F43F5E'),
-('c4', 'Self Reward & Hiburan', 10, '#F59E0B'),
-('c5', 'Dana Darurat', 10, '#8B5CF6');
-
-INSERT INTO public.quick_actions (id, title, amount, category, color_hex) VALUES
-('q1', 'Kopi', 18000, 'Self Reward & Hiburan', '#F43F5E'),
-('q2', 'Makan', 35000, 'Kebutuhan Pokok', '#10B981'),
-('q3', 'Transport', 25000, 'Kebutuhan Pokok', '#3B82F6'),
-('q4', 'Pulsa', 50000, 'Kebutuhan Pokok', '#F59E0B'),
-('q5', 'Snack', 15000, 'Self Reward & Hiburan', '#8B5CF6'),
-('q6', 'Bensin', 30000, 'Kebutuhan Pokok', '#10B981');
-
-INSERT INTO public.user_settings (id, base_salary, payday_date, email_service_active, recipient_email) VALUES
-(1, 10000000, 25, TRUE, 'user@example.com');
+```text
+[Vercel Web App (React + Vite + Tailwind)] ──┐
+                                              ├──► [Firebase Auth + Cloud Firestore (Spark Free)]
+[Native Android (Kotlin + Jetpack Compose)] ──┘
 ```
 
+### Repository Layout
+- `src/` — React 18 + Vite + Tailwind CSS + Recharts + Firebase Web SDK (deployed on Vercel)
+- `android/` — Standalone Kotlin + Jetpack Compose + Material 3 + Firebase Android SDK
+- `firestore.rules` — Per-user Firestore security rules (`request.auth.uid == userId`)
+- `FIREBASE_SETUP.md` — Step-by-step Firebase Spark ($0) + Vercel setup checklist
+- `.github/workflows/build.yml` — Automated Web build & Android Debug APK CI workflow
+
 ---
 
-## 🛠️ How to Build & Run (Local Android Emulator / Device)
+## Quick Start
 
-### Prerequisites
-- Android Studio Hedgehog / Ladybug or Gradle 8.x
-- Android SDK 34+
-- Connected Android Emulator or Physical Device (with USB Debugging)
+### 1. Firebase Setup ($0 Spark Plan)
+Follow [FIREBASE_SETUP.md](./FIREBASE_SETUP.md) to:
+1. Create a Firebase project and enable **Email/Password** & **Google** sign-in.
+2. Create **Cloud Firestore** and publish [`firestore.rules`](./firestore.rules).
+3. *(Optional for live Gmail scanning)* Enable **Gmail API** in Google Cloud Console for your Firebase project.
 
-### Build Steps
+### 2. Run Web App Locally / Deploy to Vercel
+```bash
+cp .env.example .env.local   # fill in your VITE_FIREBASE_* values
+npm install
+npm run dev                  # local dev server
+npm run build                # production build for Vercel
+```
+To deploy on **Vercel**, import this repository, add the `VITE_FIREBASE_*` keys under **Project Settings → Environment Variables**, and whitelist your Vercel domain under **Firebase → Authentication → Settings → Authorized domains**.
 
-1. **Clone the Repository**:
-   ```bash
-   git clone https://github.com/Dexiusss/Personal_Financial_App.git
-   cd Personal_Financial_App
-   ```
-
-2. **Build Debug APK**:
+### 3. Build Native Android APK
+1. Download `google-services.json` for package `com.financialapp.manager` from Firebase Console and place it in `android/app/google-services.json` *(or build without it to test in Local Mode)*.
+2. Build the debug APK:
    ```bash
    cd android
-   .\gradlew.bat assembleDebug
+   ./gradlew assembleDebug
    ```
-
-3. **Install to Emulator via ADB**:
-   ```bash
-   adb install -r app\build\outputs\apk\debug\app-debug.apk
-   ```
+   Output APK: `android/app/build/outputs/apk/debug/app-debug.apk`
 
 ---
 
-## 🛡️ License & Author
-- Built with ❤️ by **@Dexius** for personal financial management and open-source demonstration.
+## Credits
+- Forked and redesigned by **@umam1n** from the original personal finance concept by **@Dexiusss** (`Personal_Financial_App`), with desktop UI & theme palette inspiration from [yukinon](https://github.com/umam1n/yukinon).
