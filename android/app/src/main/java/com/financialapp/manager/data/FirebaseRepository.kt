@@ -1,14 +1,17 @@
 package com.financialapp.manager.data
 
+import android.app.Application
+import android.content.Context
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.lifecycle.ViewModel
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.financialapp.manager.model.*
 import com.financialapp.manager.ui.theme.formatRupiah
 import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.auth.UserProfileChangeRequest
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
@@ -26,7 +29,29 @@ import java.util.UUID
  * Uses the exact same Firestore paths (`users/{uid}/...`) as the Vercel Web App.
  * Gracefully falls back to Local Guest Mode if google-services.json is not yet configured.
  */
-class SakukurataViewModel : ViewModel() {
+data class PrivacyState(
+    val hideAll: Boolean = false,
+    val hiddenScopes: Map<String, Boolean> = mapOf(
+        "income" to false,
+        "spending" to false,
+        "remainingBudget" to false,
+        "savings" to false,
+        "wallets" to false,
+        "transactions" to false
+    ),
+    val hiddenCards: Map<String, Boolean> = mapOf(
+        "income" to false,
+        "spending" to false,
+        "savings" to false,
+        "remaining" to false,
+        "walletsBanner" to false
+    )
+)
+
+class SakukurataViewModel(application: Application) : AndroidViewModel(application) {
+
+    private val privacyPrefs = application.getSharedPreferences("sakukurata_privacy_v1", Context.MODE_PRIVATE)
+    private val themePrefs = application.getSharedPreferences("sakukurata_theme_v1", Context.MODE_PRIVATE)
 
     val isFirebaseAvailable: Boolean = try {
         FirebaseApp.getApps(FirebaseApp.getInstance().applicationContext).isNotEmpty()
@@ -61,7 +86,16 @@ class SakukurataViewModel : ViewModel() {
     var bills by mutableStateOf<List<RecurringBillItem>>(emptyList())
         private set
 
-    var hideBalances by mutableStateOf(false)
+    var privacyState by mutableStateOf(loadPrivacyState())
+        private set
+
+    val hideBalances: Boolean
+        get() = privacyState.hideAll
+
+    var isDarkMode by mutableStateOf(themePrefs.getBoolean("isDarkMode", true))
+        private set
+
+    var accentPresetId by mutableStateOf(themePrefs.getString("accentPresetId", "emerald") ?: "emerald")
         private set
 
     private val listeners = mutableListOf<ListenerRegistration>()
@@ -72,12 +106,75 @@ class SakukurataViewModel : ViewModel() {
     val onboardingCompleted: Boolean
         get() = profile?.onboardingCompleted == true
 
-    fun toggleHideBalances() {
-        hideBalances = !hideBalances
+    private fun loadPrivacyState(): PrivacyState {
+        val scopes = listOf("income", "spending", "remainingBudget", "savings", "wallets", "transactions")
+            .associateWith { privacyPrefs.getBoolean("scope_$it", false) }
+        val cards = listOf("income", "spending", "savings", "remaining", "walletsBanner")
+            .associateWith { privacyPrefs.getBoolean("card_$it", false) }
+        return PrivacyState(
+            hideAll = privacyPrefs.getBoolean("hideAll", false),
+            hiddenScopes = scopes,
+            hiddenCards = cards
+        )
     }
 
-    fun displayMoney(amount: Long): String {
-        return if (hideBalances) "Rp ••••••" else formatRupiah(amount)
+    private fun savePrivacyState(state: PrivacyState) {
+        privacyPrefs.edit().apply {
+            putBoolean("hideAll", state.hideAll)
+            state.hiddenScopes.forEach { (k, v) -> putBoolean("scope_$k", v) }
+            state.hiddenCards.forEach { (k, v) -> putBoolean("card_$k", v) }
+            apply()
+        }
+    }
+
+    fun toggleHideBalances() {
+        val next = privacyState.copy(hideAll = !privacyState.hideAll)
+        privacyState = next
+        savePrivacyState(next)
+    }
+
+    fun togglePrivacyScope(scope: String) {
+        val updated = privacyState.hiddenScopes.toMutableMap()
+        updated[scope] = !(updated[scope] ?: false)
+        val next = privacyState.copy(hiddenScopes = updated)
+        privacyState = next
+        savePrivacyState(next)
+    }
+
+    fun toggleCardVisibility(card: String) {
+        val updated = privacyState.hiddenCards.toMutableMap()
+        updated[card] = !(updated[card] ?: false)
+        val next = privacyState.copy(hiddenCards = updated)
+        privacyState = next
+        savePrivacyState(next)
+    }
+
+    fun resetPrivacyPreferences() {
+        val fresh = PrivacyState()
+        privacyState = fresh
+        savePrivacyState(fresh)
+    }
+
+    fun isScopeHidden(scope: String = "all"): Boolean {
+        return privacyState.hideAll || (privacyState.hiddenScopes[scope] == true)
+    }
+
+    fun isCardHidden(card: String): Boolean {
+        return privacyState.hiddenCards[card] == true
+    }
+
+    fun displayMoney(amount: Long, scope: String = "all"): String {
+        return if (isScopeHidden(scope)) "Rp ••••••" else formatRupiah(amount)
+    }
+
+    fun toggleDarkMode() {
+        isDarkMode = !isDarkMode
+        themePrefs.edit().putBoolean("isDarkMode", isDarkMode).apply()
+    }
+
+    fun setAccentPreset(id: String) {
+        accentPresetId = id
+        themePrefs.edit().putString("accentPresetId", id).apply()
     }
 
     fun isSavingTransaction(tx: TransactionItem): Boolean {
@@ -279,6 +376,26 @@ class SakukurataViewModel : ViewModel() {
     }
 
     // --- AUTH ---
+
+    fun setAuthErrorMessage(message: String) {
+        authError = message
+    }
+
+    fun loginWithGoogleIdToken(idToken: String) {
+        val firebaseAuth = auth ?: run {
+            authError = "Firebase is not configured (google-services.json)."
+            return
+        }
+        authError = ""
+        viewModelScope.launch {
+            try {
+                val credential = GoogleAuthProvider.getCredential(idToken, null)
+                firebaseAuth.signInWithCredential(credential).await()
+            } catch (e: Exception) {
+                authError = e.localizedMessage ?: "Google Sign-In failed. Check SHA-1 & Web Client ID in Firebase."
+            }
+        }
+    }
 
     fun loginWithEmail(email: String, password: String) {
         val firebaseAuth = auth ?: run {
@@ -614,6 +731,24 @@ class SakukurataViewModel : ViewModel() {
             balance = balance,
             color = color
         )
+    }
+
+    fun updateWallet(walletId: String, name: String, type: String, balance: Long, color: String) {
+        val cleanName = name.trim()
+        if (cleanName.isEmpty()) return
+        val uid = currentUid
+        val firestore = db
+        if (!isGuestMode && uid != null && firestore != null) {
+            firestore.collection("users").document(uid).collection("wallets").document(walletId)
+                .set(
+                    mapOf("name" to cleanName, "type" to type, "balance" to balance, "color" to color),
+                    SetOptions.merge()
+                )
+            return
+        }
+        wallets = wallets.map { w ->
+            if (w.id == walletId) w.copy(name = cleanName, type = type, balance = balance, color = color) else w
+        }
     }
 
     fun deleteWallet(walletId: String) {

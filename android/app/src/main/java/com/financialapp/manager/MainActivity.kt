@@ -19,7 +19,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -32,22 +31,27 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            SakukurataTheme {
-                SakukurataApp()
+            val vm: SakukurataViewModel = viewModel()
+            SakukurataTheme(
+                darkTheme = vm.isDarkMode,
+                accentPresetId = vm.accentPresetId
+            ) {
+                SakukurataApp(vm)
             }
         }
     }
 }
 
 @Composable
-fun SakukurataApp(vm: SakukurataViewModel = viewModel()) {
+fun SakukurataApp(vm: SakukurataViewModel) {
+    val colors = AppColors.current
     when {
         vm.isLoading -> {
             Box(
-                modifier = Modifier.fillMaxSize().background(DarkBackground),
+                modifier = Modifier.fillMaxSize().background(colors.background),
                 contentAlignment = Alignment.Center
             ) {
-                CircularProgressIndicator(color = EmeraldAccent)
+                CircularProgressIndicator(color = colors.accent)
             }
         }
         !vm.isAuthenticated -> AuthScreen(vm)
@@ -58,30 +62,31 @@ fun SakukurataApp(vm: SakukurataViewModel = viewModel()) {
 
 @Composable
 private fun MainDashboard(vm: SakukurataViewModel) {
+    val colors = AppColors.current
     var selectedTab by remember { mutableIntStateOf(0) }
     var showAddDialog by remember { mutableStateOf(false) }
 
     val tabs = listOf(
         Triple(0, "Overview", Icons.Default.PieChart),
-        Triple(1, "Dompet", Icons.Default.AccountBalanceWallet),
-        Triple(2, "Alokasi", Icons.Default.Tune),
+        Triple(1, "Wallets", Icons.Default.AccountBalanceWallet),
+        Triple(2, "Budget", Icons.Default.Tune),
         Triple(3, "Settings", Icons.Default.Settings)
     )
 
     Scaffold(
-        containerColor = DarkBackground,
+        containerColor = colors.background,
         topBar = {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(DarkBackground)
+                    .background(colors.background)
                     .padding(horizontal = 20.dp, vertical = 14.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column {
-                    Text("Sakukurata", fontSize = 18.sp, fontWeight = FontWeight.Black, color = Color.White)
-                    Text("Halo, ${vm.profile?.displayName ?: "Pengguna"}", fontSize = 11.sp, color = TextSecondary)
+                    Text("Sakukurata", fontSize = 18.sp, fontWeight = FontWeight.Black, color = colors.textPrimary)
+                    Text("Hello, ${vm.profile?.displayName ?: "User"}", fontSize = 11.sp, color = colors.textSecondary)
                 }
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -92,28 +97,28 @@ private fun MainDashboard(vm: SakukurataViewModel) {
                         modifier = Modifier
                             .size(34.dp)
                             .clip(RoundedCornerShape(10.dp))
-                            .background(if (vm.hideBalances) EmeraldAccent.copy(alpha = 0.2f) else DarkCard)
-                            .border(1.dp, DarkCardBorder, RoundedCornerShape(10.dp))
+                            .background(if (vm.hideBalances) colors.accent.copy(alpha = 0.2f) else colors.card)
+                            .border(1.dp, colors.cardBorder, RoundedCornerShape(10.dp))
                     ) {
                         Icon(
                             imageVector = if (vm.hideBalances) Icons.Default.VisibilityOff else Icons.Default.Visibility,
                             contentDescription = "Hide/Show Balances",
-                            tint = if (vm.hideBalances) EmeraldAccent else TextSecondary,
+                            tint = if (vm.hideBalances) colors.accent else colors.textSecondary,
                             modifier = Modifier.size(18.dp)
                         )
                     }
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(50))
-                            .background(EmeraldAccent.copy(alpha = 0.14f))
-                            .border(1.dp, EmeraldAccent.copy(alpha = 0.3f), RoundedCornerShape(50))
+                            .background(colors.accent.copy(alpha = 0.14f))
+                            .border(1.dp, colors.accent.copy(alpha = 0.3f), RoundedCornerShape(50))
                             .padding(horizontal = 10.dp, vertical = 4.dp)
                     ) {
                         Text(
-                            if (vm.isGuestMode) "Lokal" else "Cloud Sync",
+                            if (vm.isGuestMode) "Local" else "Cloud Sync",
                             fontSize = 10.sp,
                             fontWeight = FontWeight.ExtraBold,
-                            color = EmeraldAccent
+                            color = colors.accent
                         )
                     }
                 }
@@ -121,7 +126,7 @@ private fun MainDashboard(vm: SakukurataViewModel) {
         },
         bottomBar = {
             NavigationBar(
-                containerColor = DarkSurface,
+                containerColor = colors.surface,
                 tonalElevation = 0.dp
             ) {
                 tabs.forEach { (idx, label, icon) ->
@@ -131,11 +136,11 @@ private fun MainDashboard(vm: SakukurataViewModel) {
                         icon = { Icon(icon, contentDescription = label) },
                         label = { Text(label, fontSize = 11.sp, fontWeight = FontWeight.Bold) },
                         colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = EmeraldAccent,
-                            selectedTextColor = EmeraldAccent,
-                            indicatorColor = EmeraldAccent.copy(alpha = 0.15f),
-                            unselectedIconColor = TextSecondary,
-                            unselectedTextColor = TextSecondary
+                            selectedIconColor = colors.accent,
+                            selectedTextColor = colors.accent,
+                            indicatorColor = colors.accent.copy(alpha = 0.15f),
+                            unselectedIconColor = colors.textSecondary,
+                            unselectedTextColor = colors.textSecondary
                         )
                     )
                 }

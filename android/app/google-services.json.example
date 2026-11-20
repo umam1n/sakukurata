@@ -1,5 +1,5 @@
 {
-  "_comment": "Download your real google-services.json from Firebase Console -> Project Settings -> Android App (package: com.financialapp.manager) and save it as android/app/google-services.json",
+  "_comment": "Download your real google-services.json from Firebase Console -> Project Settings -> Android App (package: com.umamln.sakukurata) and save it as android/app/google-services.json",
   "project_info": {
     "project_number": "000000000000",
     "project_id": "your-firebase-project-id",
@@ -10,7 +10,7 @@
       "client_info": {
         "mobilesdk_app_id": "1:000000000000:android:0000000000000000000000",
         "android_client_info": {
-          "package_name": "com.financialapp.manager"
+          "package_name": "com.umamln.sakukurata"
         }
       },
       "api_key": [

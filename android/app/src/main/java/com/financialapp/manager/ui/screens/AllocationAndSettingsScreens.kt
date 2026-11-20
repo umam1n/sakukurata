@@ -7,10 +7,12 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material3.*
@@ -27,6 +29,7 @@ import com.financialapp.manager.EmailReceiptParser
 import com.financialapp.manager.data.SakukurataViewModel
 import com.financialapp.manager.model.BudgetBucket
 import com.financialapp.manager.model.OnboardingTemplates
+import com.financialapp.manager.model.SmartCategorizer
 import com.financialapp.manager.model.TransactionItem
 import com.financialapp.manager.model.WalletItem
 import com.financialapp.manager.model.inferBucketKind
@@ -34,6 +37,7 @@ import com.financialapp.manager.ui.theme.*
 
 @Composable
 fun AllocationScreen(vm: SakukurataViewModel) {
+    val colors = AppColors.current
     var draftBuckets by remember(vm.buckets) { mutableStateOf(vm.buckets) }
     var newName by remember { mutableStateOf("") }
     var newPct by remember { mutableStateOf("10") }
@@ -52,10 +56,15 @@ fun AllocationScreen(vm: SakukurataViewModel) {
     ) {
         item {
             Column(
-                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(DarkCard).padding(16.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(colors.card)
+                    .border(1.dp, colors.cardBorder, RoundedCornerShape(24.dp))
+                    .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Text("Flexible 100% Budget Split", fontSize = 18.sp, fontWeight = FontWeight.Black, color = Color.White)
+                Text("Flexible 100% Budget Split", fontSize = 18.sp, fontWeight = FontWeight.Black, color = colors.textPrimary)
                 Text(
                     "Spending: $spendingPct% • Saving / Invest: $savingPct%",
                     fontSize = 11.sp,
@@ -65,7 +74,7 @@ fun AllocationScreen(vm: SakukurataViewModel) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         "Total: $totalPct% / 100%",
-                        color = if (isValid) EmeraldAccent else RoseAccent,
+                        color = if (isValid) colors.accent else RoseAccent,
                         fontWeight = FontWeight.ExtraBold,
                         fontSize = 12.sp
                     )
@@ -83,7 +92,7 @@ fun AllocationScreen(vm: SakukurataViewModel) {
                     Button(
                         onClick = { vm.saveBuckets(draftBuckets) },
                         enabled = isValid,
-                        colors = ButtonDefaults.buttonColors(containerColor = EmeraldAccent, contentColor = Color(0xFF052E16)),
+                        colors = ButtonDefaults.buttonColors(containerColor = colors.accent, contentColor = colors.onAccent),
                         shape = RoundedCornerShape(12.dp)
                     ) {
                         Text("Save", fontWeight = FontWeight.Black, fontSize = 12.sp)
@@ -112,8 +121,8 @@ fun AllocationScreen(vm: SakukurataViewModel) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(20.dp))
-                    .background(DarkCard)
-                    .border(1.dp, DarkCardBorder, RoundedCornerShape(20.dp))
+                    .background(colors.card)
+                    .border(1.dp, colors.cardBorder, RoundedCornerShape(20.dp))
                     .padding(14.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
@@ -121,13 +130,13 @@ fun AllocationScreen(vm: SakukurataViewModel) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.weight(1f)) {
                     Box(Modifier.width(5.dp).height(38.dp).clip(RoundedCornerShape(4.dp)).background(parseHexColor(b.color)))
                     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        Text(b.name, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                        Text(b.name, color = colors.textPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Text(vm.displayMoney(allocated), color = EmeraldAccent, fontWeight = FontWeight.ExtraBold, fontSize = 11.sp)
+                            Text(vm.displayMoney(allocated, "income"), color = colors.accent, fontWeight = FontWeight.ExtraBold, fontSize = 11.sp)
                             Box(
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(6.dp))
-                                    .background(if (kind == "saving") SoftBlue.copy(alpha = 0.2f) else DarkSurface)
+                                    .background(if (kind == "saving") SoftBlue.copy(alpha = 0.2f) else colors.surface)
                                     .clickable {
                                         val toggled = if (kind == "saving") "spending" else "saving"
                                         draftBuckets = draftBuckets.map { if (it.id == b.id) it.copy(kind = toggled) else it }
@@ -138,7 +147,7 @@ fun AllocationScreen(vm: SakukurataViewModel) {
                                     if (kind == "saving") "Saving" else "Spending",
                                     fontSize = 9.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = if (kind == "saving") SoftBlue else TextSecondary
+                                    color = if (kind == "saving") SoftBlue else colors.textSecondary
                                 )
                             }
                         }
@@ -147,14 +156,14 @@ fun AllocationScreen(vm: SakukurataViewModel) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     TextButton(onClick = {
                         draftBuckets = draftBuckets.map { if (it.id == b.id) it.copy(percentage = (it.percentage - 5).coerceAtLeast(0)) else it }
-                    }) { Text("-5", color = TextSecondary) }
-                    Text("${b.percentage}%", color = Color.White, fontWeight = FontWeight.Black, fontSize = 13.sp)
+                    }) { Text("-5", color = colors.textSecondary) }
+                    Text("${b.percentage}%", color = colors.textPrimary, fontWeight = FontWeight.Black, fontSize = 13.sp)
                     TextButton(onClick = {
                         draftBuckets = draftBuckets.map { if (it.id == b.id) it.copy(percentage = (it.percentage + 5).coerceAtMost(100)) else it }
-                    }) { Text("+5", color = EmeraldAccent) }
+                    }) { Text("+5", color = colors.accent) }
                     if (draftBuckets.size > 1) {
                         IconButton(onClick = { draftBuckets = draftBuckets.filterNot { it.id == b.id } }) {
-                            Icon(Icons.Default.Delete, contentDescription = null, tint = TextSecondary, modifier = Modifier.size(18.dp))
+                            Icon(Icons.Default.Delete, contentDescription = null, tint = colors.textSecondary, modifier = Modifier.size(18.dp))
                         }
                     }
                 }
@@ -164,7 +173,12 @@ fun AllocationScreen(vm: SakukurataViewModel) {
         // Add Custom Bucket
         item {
             Column(
-                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(DarkCard).padding(12.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(colors.card)
+                    .border(1.dp, colors.cardBorder, RoundedCornerShape(20.dp))
+                    .padding(12.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -197,7 +211,7 @@ fun AllocationScreen(vm: SakukurataViewModel) {
                                 newName = ""
                             }
                         },
-                        colors = ButtonDefaults.buttonColors(containerColor = EmeraldAccent, contentColor = Color(0xFF052E16))
+                        colors = ButtonDefaults.buttonColors(containerColor = colors.accent, contentColor = colors.onAccent)
                     ) { Text("+") }
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -216,6 +230,7 @@ fun AllocationScreen(vm: SakukurataViewModel) {
 
 @Composable
 fun SettingsAndHistoryScreen(vm: SakukurataViewModel) {
+    val colors = AppColors.current
     var nameInput by remember(vm.profile) { mutableStateOf(vm.profile?.displayName ?: "") }
     var salaryInput by remember(vm.profile) { mutableStateOf(formatInputNumber((vm.profile?.baseSalary ?: 0L).toString())) }
     var paydayInput by remember(vm.profile) { mutableStateOf((vm.profile?.paydayDate ?: 25).toString()) }
@@ -225,18 +240,24 @@ fun SettingsAndHistoryScreen(vm: SakukurataViewModel) {
         modifier = Modifier.fillMaxSize().padding(horizontal = 18.dp, vertical = 10.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
+        // Profile Card
         item {
             Column(
-                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(DarkCard).padding(16.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(colors.card)
+                    .border(1.dp, colors.cardBorder, RoundedCornerShape(24.dp))
+                    .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("Profile & Cloud Sync", fontSize = 16.sp, fontWeight = FontWeight.Black, color = Color.White)
+                    Text("Profile & Cloud Sync", fontSize = 16.sp, fontWeight = FontWeight.Black, color = colors.textPrimary)
                     Text(
                         if (vm.isGuestMode) "Local" else "Firebase Cloud",
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
-                        color = EmeraldAccent
+                        color = colors.accent
                     )
                 }
                 OutlinedTextField(value = nameInput, onValueChange = { nameInput = it }, label = { Text("Display Name") }, modifier = Modifier.fillMaxWidth())
@@ -263,13 +284,117 @@ fun SettingsAndHistoryScreen(vm: SakukurataViewModel) {
                                 paydayDate = paydayInput.toIntOrNull()?.coerceIn(1, 31) ?: 25
                             )
                         },
-                        colors = ButtonDefaults.buttonColors(containerColor = EmeraldAccent, contentColor = Color(0xFF052E16)),
+                        colors = ButtonDefaults.buttonColors(containerColor = colors.accent, contentColor = colors.onAccent),
                         modifier = Modifier.weight(1f).height(52.dp)
                     ) { Text("Save Profile", fontWeight = FontWeight.Black) }
                 }
             }
         }
 
+        // Appearance Card (Theme + Accent Palette)
+        item {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(colors.card)
+                    .border(1.dp, colors.cardBorder, RoundedCornerShape(24.dp))
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text("Appearance", fontSize = 15.sp, fontWeight = FontWeight.Black, color = colors.textPrimary)
+                        Text(if (vm.isDarkMode) "Dark Mode" else "Light Mode", fontSize = 11.sp, color = colors.textSecondary)
+                    }
+                    Switch(checked = vm.isDarkMode, onCheckedChange = { vm.toggleDarkMode() })
+                }
+                Text("Accent Palette", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = colors.textSecondary)
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    items(ACCENT_PRESETS) { preset ->
+                        val active = vm.accentPresetId == preset.id
+                        Box(
+                            modifier = Modifier
+                                .size(34.dp)
+                                .clip(CircleShape)
+                                .background(preset.color)
+                                .border(2.dp, if (active) colors.textPrimary else Color.Transparent, CircleShape)
+                                .clickable { vm.setAccentPreset(preset.id) },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (active) {
+                                Icon(Icons.Default.Check, contentDescription = preset.label, tint = preset.onAccent, modifier = Modifier.size(16.dp))
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Privacy & Hide Card (matching Web Settings -> Privacy & Hide)
+        item {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(colors.card)
+                    .border(1.dp, colors.cardBorder, RoundedCornerShape(24.dp))
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text("Privacy & Hide", fontSize = 15.sp, fontWeight = FontWeight.Black, color = colors.textPrimary)
+                        Text("Mask sensitive amounts or hide cards", fontSize = 11.sp, color = colors.textSecondary)
+                    }
+                    TextButton(onClick = { vm.resetPrivacyPreferences() }) {
+                        Text("Reset", color = colors.accent, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+
+                PrivacySwitchRow("Master Privacy (Mask All Rp)", vm.privacyState.hideAll) {
+                    vm.toggleHideBalances()
+                }
+                HorizontalDivider(color = colors.cardBorder)
+                Text("Mask Specific Numbers", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = colors.textSecondary)
+                listOf(
+                    "income" to "Monthly Income",
+                    "spending" to "Total Spending",
+                    "savings" to "Saved & Invested",
+                    "remainingBudget" to "Remaining Budget",
+                    "wallets" to "All-Time Wallet Balances",
+                    "transactions" to "Transaction Amounts"
+                ).forEach { (key, label) ->
+                    PrivacySwitchRow(label, vm.privacyState.hiddenScopes[key] == true) {
+                        vm.togglePrivacyScope(key)
+                    }
+                }
+
+                HorizontalDivider(color = colors.cardBorder)
+                Text("Hide Entire Cards", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = colors.textSecondary)
+                listOf(
+                    "income" to "Hide Monthly Income Card",
+                    "spending" to "Hide Total Spending Card",
+                    "savings" to "Hide Saved & Invested Card",
+                    "remaining" to "Hide Remaining Budget Card",
+                    "walletsBanner" to "Hide Total Wallets Banner"
+                ).forEach { (key, label) ->
+                    PrivacySwitchRow(label, vm.privacyState.hiddenCards[key] == true) {
+                        vm.toggleCardVisibility(key)
+                    }
+                }
+            }
+        }
+
+        // Actions Row
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
                 Button(
@@ -295,7 +420,7 @@ fun SettingsAndHistoryScreen(vm: SakukurataViewModel) {
         }
 
         item {
-            Text("Transaction History (${vm.transactions.size})", fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
+            Text("Transaction History (${vm.transactions.size})", fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = colors.textPrimary)
         }
 
         items(vm.transactions) { tx ->
@@ -307,27 +432,27 @@ fun SettingsAndHistoryScreen(vm: SakukurataViewModel) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(18.dp))
-                    .background(DarkCard)
-                    .border(1.dp, DarkCardBorder, RoundedCornerShape(18.dp))
+                    .background(colors.card)
+                    .border(1.dp, colors.cardBorder, RoundedCornerShape(18.dp))
                     .padding(14.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(tx.merchant.ifBlank { "Transaction" }, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                    Text("${tx.bucketName} • $walletFlow", color = TextSecondary, fontSize = 11.sp)
+                    Text(tx.merchant.ifBlank { "Transaction" }, color = colors.textPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    Text("${tx.bucketName} • $walletFlow", color = colors.textSecondary, fontSize = 11.sp)
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     val prefix = if (isIncome) "+" else if (isSaving) "↗ " else "-"
                     val amtColor = if (isIncome) MintAccent else if (isSaving) SoftBlue else SoftPink
                     Text(
-                        "$prefix${vm.displayMoney(tx.amount)}",
+                        "$prefix${vm.displayMoney(tx.amount, "transactions")}",
                         color = amtColor,
                         fontWeight = FontWeight.ExtraBold,
                         fontSize = 13.sp
                     )
                     IconButton(onClick = { vm.deleteTransaction(tx) }) {
-                        Icon(Icons.Default.Delete, contentDescription = null, tint = TextSecondary, modifier = Modifier.size(17.dp))
+                        Icon(Icons.Default.Delete, contentDescription = null, tint = colors.textSecondary, modifier = Modifier.size(17.dp))
                     }
                 }
             }
@@ -338,8 +463,8 @@ fun SettingsAndHistoryScreen(vm: SakukurataViewModel) {
         var rawEmail by remember { mutableStateOf("") }
         AlertDialog(
             onDismissRequest = { showEmailParser = false },
-            containerColor = DarkCard,
-            title = { Text("Import Bank Email Receipt", color = Color.White, fontWeight = FontWeight.Bold) },
+            containerColor = colors.card,
+            title = { Text("Import Bank Email Receipt", color = colors.textPrimary, fontWeight = FontWeight.Bold) },
             text = {
                 OutlinedTextField(
                     value = rawEmail,
@@ -354,17 +479,20 @@ fun SettingsAndHistoryScreen(vm: SakukurataViewModel) {
                     onClick = {
                         val parsed = EmailReceiptParser.parse(rawEmail)
                         if (parsed.amount > 0L) {
-                            val defaultBucket = vm.buckets.firstOrNull { inferBucketKind(it.name, it.kind) == "spending" }
-                                ?: vm.buckets.firstOrNull()
-                            val defaultWallet = vm.wallets.firstOrNull()
+                            val assigned = SmartCategorizer.autoAssignBucketAndWallet(
+                                merchant = parsed.merchant,
+                                buckets = vm.buckets,
+                                wallets = vm.wallets,
+                                rawText = rawEmail
+                            )
                             vm.addTransaction(
                                 TransactionItem(
-                                    type = "expense",
+                                    type = assigned.suggestedTxType,
                                     amount = parsed.amount,
-                                    bucketId = defaultBucket?.id,
-                                    bucketName = defaultBucket?.name ?: "General",
-                                    walletId = defaultWallet?.id,
-                                    walletName = defaultWallet?.name ?: "Wallet",
+                                    bucketId = assigned.bucket?.id,
+                                    bucketName = assigned.bucket?.name ?: "General",
+                                    walletId = assigned.wallet?.id,
+                                    walletName = assigned.wallet?.name ?: "Wallet",
                                     merchant = parsed.merchant.ifBlank { "Email Transaction" },
                                     notes = "Bank Email Import"
                                 )
@@ -372,13 +500,30 @@ fun SettingsAndHistoryScreen(vm: SakukurataViewModel) {
                         }
                         showEmailParser = false
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = EmeraldAccent, contentColor = Color(0xFF052E16))
+                    colors = ButtonDefaults.buttonColors(containerColor = colors.accent, contentColor = colors.onAccent)
                 ) { Text("Parse & Save", fontWeight = FontWeight.Bold) }
             },
             dismissButton = {
-                TextButton(onClick = { showEmailParser = false }) { Text("Cancel", color = TextSecondary) }
+                TextButton(onClick = { showEmailParser = false }) { Text("Cancel", color = colors.textSecondary) }
             }
         )
+    }
+}
+
+@Composable
+private fun PrivacySwitchRow(
+    label: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    val colors = AppColors.current
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(label, fontSize = 12.sp, color = colors.textPrimary)
+        Switch(checked = checked, onCheckedChange = onCheckedChange)
     }
 }
 
@@ -387,6 +532,7 @@ fun AddTransactionDialog(
     vm: SakukurataViewModel,
     onDismiss: () -> Unit
 ) {
+    val colors = AppColors.current
     var type by remember { mutableStateOf("expense") }
     var amountText by remember { mutableStateOf("") }
     var merchant by remember { mutableStateOf("") }
@@ -406,8 +552,8 @@ fun AddTransactionDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = DarkCard,
-        title = { Text("Add Entry", color = Color.White, fontWeight = FontWeight.Black) },
+        containerColor = colors.card,
+        title = { Text("Add Entry", color = colors.textPrimary, fontWeight = FontWeight.Black) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 // 3-way Type Switcher: Expense | Save/Invest | Income
@@ -421,10 +567,10 @@ fun AddTransactionDialog(
                         val bgColor = when {
                             active && key == "expense" -> RoseAccent
                             active && key == "saving" -> SoftBlue
-                            active && key == "income" -> EmeraldAccent
-                            else -> DarkSurface
+                            active && key == "income" -> colors.accent
+                            else -> colors.surface
                         }
-                        val fgColor = if (active && key != "expense") Color(0xFF052E16) else Color.White
+                        val fgColor = if (active && key == "income") colors.onAccent else if (active) Color.White else colors.textPrimary
                         Button(
                             onClick = {
                                 type = key
@@ -446,7 +592,17 @@ fun AddTransactionDialog(
                 )
                 OutlinedTextField(
                     value = merchant,
-                    onValueChange = { merchant = it },
+                    onValueChange = { next ->
+                        merchant = next
+                        if (type != "income" && next.length >= 3) {
+                            val auto = SmartCategorizer.autoAssignBucketAndWallet(next, vm.buckets, vm.wallets)
+                            if (auto.suggestedTxType == "saving" && type != "saving") {
+                                type = "saving"
+                            }
+                            if (auto.bucket != null) selectedBucket = auto.bucket
+                            if (auto.wallet != null) selectedWallet = auto.wallet
+                        }
+                    },
                     label = {
                         Text(
                             when (type) {
@@ -474,7 +630,7 @@ fun AddTransactionDialog(
                     Text(
                         if (type == "saving") "From Wallet" else "Wallet",
                         fontSize = 10.sp,
-                        color = TextSecondary
+                        color = colors.textSecondary
                     )
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         items(vm.wallets) { w ->
@@ -487,7 +643,7 @@ fun AddTransactionDialog(
                     }
                 }
                 if (type == "saving" && vm.wallets.size > 1) {
-                    Text("To Investment/Savings Wallet (Optional)", fontSize = 10.sp, color = TextSecondary)
+                    Text("To Investment/Savings Wallet (Optional)", fontSize = 10.sp, color = colors.textSecondary)
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         item {
                             FilterChip(
@@ -534,11 +690,11 @@ fun AddTransactionDialog(
                         onDismiss()
                     }
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = EmeraldAccent, contentColor = Color(0xFF052E16))
+                colors = ButtonDefaults.buttonColors(containerColor = colors.accent, contentColor = colors.onAccent)
             ) { Text("Save", fontWeight = FontWeight.Black) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel", color = TextSecondary) }
+            TextButton(onClick = onDismiss) { Text("Cancel", color = colors.textSecondary) }
         }
     )
 }
