@@ -5,7 +5,7 @@ android {
     namespace "com.financialapp.manager"
     compileSdk rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "com.financialapp.manager"
+        applicationId "com.umamln.sakukurata"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 3
