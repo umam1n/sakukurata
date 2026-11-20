@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { CheckCircle2, Clock, Plus, Trash2, X } from 'lucide-react';
 import { useFinance } from '../context/FinanceContext';
-import { formatRupiah } from '../utils/formatters';
+import { usePrivacy } from '../context/PrivacyContext';
 
 export const RecurringBillsCard = () => {
   const { recurringBills, addBill, toggleBillPaid, deleteBill } = useFinance();
+  const { displayMoney } = usePrivacy();
 
   const [showForm, setShowForm] = useState(false);
   const [title, setTitle] = useState('');
@@ -97,7 +98,7 @@ export const RecurringBillsCard = () => {
               <div className="min-w-0">
                 <p className="font-semibold text-xs truncate">{rb.title}</p>
                 <span className="text-[10px] text-muted block">Due day {rb.dueDay}</span>
-                <span className="text-xs font-bold text-rose-400 block">{formatRupiah(rb.amount)}</span>
+                <span className="text-xs font-bold text-rose-400 block">{displayMoney(rb.amount, 'spending')}</span>
               </div>
 
               <div className="flex items-center gap-1 flex-shrink-0">

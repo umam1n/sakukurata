@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
-import { Search, Download, Trash2, ArrowUpRight, ArrowDownLeft } from 'lucide-react';
+import { Search, Download, Trash2, ArrowUpRight, ArrowDownLeft, PiggyBank } from 'lucide-react';
 import { useFinance } from '../context/FinanceContext';
-import { formatRupiah, formatTanggal } from '../utils/formatters';
+import { usePrivacy } from '../context/PrivacyContext';
+import { formatTanggal } from '../utils/formatters';
 
 export const TransactionList = ({ maxItems = null, onViewAll = null }) => {
-  const { transactions, deleteTransaction } = useFinance();
+  const { transactions, deleteTransaction, isSavingTransaction } = useFinance();
+  const { displayMoney } = usePrivacy();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [dateFilter, setDateFilter] = useState('all');
@@ -35,16 +37,20 @@ export const TransactionList = ({ maxItems = null, onViewAll = null }) => {
 
   const handleExportCSV = () => {
     if (transactions.length === 0) return;
-    const headers = ['Date', 'Type', 'Amount', 'Bucket', 'Wallet', 'Merchant', 'Notes'];
-    const rows = transactions.map((t) => [
-      `"${formatTanggal(t.transactionDate)}"`,
-      `"${t.type === 'income' ? 'Income' : 'Expense'}"`,
-      t.amount,
-      `"${t.bucketName || t.categoryName || ''}"`,
-      `"${t.walletName || ''}"`,
-      `"${t.merchant || t.recipientMerchant || ''}"`,
-      `"${t.notes || ''}"`
-    ]);
+    const headers = ['Date', 'Type', 'Amount', 'Bucket', 'From Wallet', 'To Wallet', 'Merchant', 'Notes'];
+    const rows = transactions.map((t) => {
+      const typeLabel = t.type === 'income' ? 'Income' : isSavingTransaction(t) ? 'Saving / Investment' : 'Expense';
+      return [
+        `"${formatTanggal(t.transactionDate)}"`,
+        `"${typeLabel}"`,
+        t.amount,
+        `"${t.bucketName || t.categoryName || ''}"`,
+        `"${t.walletName || ''}"`,
+        `"${t.toWalletName || ''}"`,
+        `"${t.merchant || t.recipientMerchant || ''}"`,
+        `"${t.notes || ''}"`
+      ];
+    });
 
     const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
     const link = document.createElement('a');
@@ -122,8 +128,12 @@ export const TransactionList = ({ maxItems = null, onViewAll = null }) => {
         ) : (
           visibleList.map((tx) => {
             const isIncome = tx.type === 'income';
+            const isSaving = !isIncome && isSavingTransaction(tx);
             const title = tx.merchant || tx.recipientMerchant || 'Transaction';
             const bucketLabel = tx.bucketName || tx.categoryName || '';
+            const walletFlow = tx.toWalletName
+              ? `${tx.walletName || 'Wallet'} → ${tx.toWalletName}`
+              : tx.walletName || 'Wallet';
 
             return (
               <div
@@ -134,25 +144,51 @@ export const TransactionList = ({ maxItems = null, onViewAll = null }) => {
                 <div className="flex items-center gap-2.5 min-w-0">
                   <div
                     className={`w-7 h-7 rounded-md flex items-center justify-center flex-shrink-0 ${
-                      isIncome ? 'bg-emerald-500/15 text-emerald-400' : 'bg-rose-500/15 text-rose-400'
+                      isIncome
+                        ? 'bg-emerald-500/15 text-emerald-400'
+                        : isSaving
+                          ? 'bg-sky-500/15 text-sky-400'
+                          : 'bg-rose-500/15 text-rose-400'
                     }`}
                   >
-                    {isIncome ? <ArrowDownLeft className="w-3.5 h-3.5" /> : <ArrowUpRight className="w-3.5 h-3.5" />}
+                    {isIncome ? (
+                      <ArrowDownLeft className="w-3.5 h-3.5" />
+                    ) : isSaving ? (
+                      <PiggyBank className="w-3.5 h-3.5" />
+                    ) : (
+                      <ArrowUpRight className="w-3.5 h-3.5" />
+                    )}
                   </div>
 
                   <div className="min-w-0">
-                    <p className="font-semibold text-xs truncate">{title}</p>
+                    <div className="flex items-center gap-1.5">
+                      <p className="font-semibold text-xs truncate">{title}</p>
+                      {isSaving && (
+                        <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-sky-500/15 text-sky-400 flex-shrink-0">
+                          Saved
+                        </span>
+                      )}
+                    </div>
                     <p className="text-[10px] text-muted truncate">
-                      {bucketLabel && <span className="text-accent font-medium">{bucketLabel}</span>}
+                      {bucketLabel && (
+                        <span className={`font-medium ${isSaving ? 'text-sky-400' : 'text-accent'}`}>
+                          {bucketLabel}
+                        </span>
+                      )}
                       {bucketLabel && ' • '}
-                      {tx.walletName || 'Wallet'} • {formatTanggal(tx.transactionDate)}
+                      {walletFlow} • {formatTanggal(tx.transactionDate)}
                     </p>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2 flex-shrink-0">
-                  <span className={`text-xs font-bold ${isIncome ? 'text-emerald-400' : 'text-rose-400'}`}>
-                    {isIncome ? '+' : '-'}{formatRupiah(tx.amount)}
+                  <span
+                    className={`text-xs font-bold ${
+                      isIncome ? 'text-emerald-400' : isSaving ? 'text-sky-400' : 'text-rose-400'
+                    }`}
+                  >
+                    {isIncome ? '+' : isSaving ? '↗ ' : '-'}
+                    {displayMoney(tx.amount, 'transactions')}
                   </span>
                   <button
                     onClick={() => deleteTransaction(tx.id)}

@@ -3,9 +3,18 @@ name: Build Web & Android APK
 on:
   push:
     branches: [ main, master ]
+    tags: [ 'v*' ]
   pull_request:
     branches: [ main, master ]
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Optional tag name (e.g. v2.1.0) to publish a GitHub Release'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
 
 jobs:
   build-web:
@@ -28,11 +37,65 @@ jobs:
           java-version: 17
       - name: Make gradlew executable
         run: chmod +x android/gradlew
-      - name: Build Debug APK
+      - name: Inject google-services.json (if configured in repo secrets)
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          if [ -n "$GOOGLE_SERVICES_JSON" ]; then
+            FIRST_CHAR=$(printf '%s' "$GOOGLE_SERVICES_JSON" | tr -d '[:space:]' | cut -c1)
+            if [ "$FIRST_CHAR" = "{" ]; then
+              printf '%s' "$GOOGLE_SERVICES_JSON" > android/app/google-services.json
+            else
+              printf '%s' "$GOOGLE_SERVICES_JSON" | base64 -d > android/app/google-services.json
+            fi
+            echo "Injected android/app/google-services.json from secret."
+          else
+            echo "GOOGLE_SERVICES_JSON secret not set — building in Local/Guest Mode."
+          fi
+      - name: Build Android APK
+        id: build_apk
         working-directory: android
-        run: ./gradlew assembleDebug
-      - name: Upload Debug APK
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          TAG_NAME="${GITHUB_REF_NAME}"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ inputs.release_tag }}" ]; then
+            TAG_NAME="${{ inputs.release_tag }}"
+          fi
+          SAFE_VER="${TAG_NAME#v}"
+          if [ "${{ github.ref_type }}" != "tag" ] && [ -z "${{ inputs.release_tag }}" ]; then
+            SAFE_VER=$(grep -E 'versionName' app/build.gradle | head -n1 | sed -E 's/.*"([^"]+)".*/\1/')
+          fi
+
+          if [ -n "$ANDROID_KEYSTORE_BASE64" ] && [ -n "$ANDROID_KEYSTORE_PASSWORD" ] && [ -n "$ANDROID_KEY_ALIAS" ] && [ -n "$ANDROID_KEY_PASSWORD" ]; then
+            printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 -d > release-keystore.jks
+            export ANDROID_KEYSTORE_PATH="$PWD/release-keystore.jks"
+            ./gradlew assembleRelease
+            APK_SRC="app/build/outputs/apk/release/app-release.apk"
+            APK_OUT="app/build/outputs/apk/release/Sakukurata-v${SAFE_VER}.apk"
+            cp "$APK_SRC" "$APK_OUT"
+            rm -f release-keystore.jks
+          else
+            ./gradlew assembleDebug
+            APK_SRC="app/build/outputs/apk/debug/app-debug.apk"
+            APK_OUT="app/build/outputs/apk/debug/Sakukurata-v${SAFE_VER}-debug.apk"
+            cp "$APK_SRC" "$APK_OUT"
+          fi
+          echo "apk_path=android/${APK_OUT}" >> "$GITHUB_OUTPUT"
+          echo "release_tag=${TAG_NAME}" >> "$GITHUB_OUTPUT"
+      - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: sakukurata-debug-apk
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          name: sakukurata-apk
+          path: ${{ steps.build_apk.outputs.apk_path }}
+      - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.release_tag != '')
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.build_apk.outputs.release_tag }}
+          name: Sakukurata ${{ steps.build_apk.outputs.release_tag }}
+          generate_release_notes: true
+          files: ${{ steps.build_apk.outputs.apk_path }}

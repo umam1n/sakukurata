@@ -1,10 +1,12 @@
 import React, { useState, useMemo } from 'react';
 import { Edit2, Check } from 'lucide-react';
 import { useFinance } from '../context/FinanceContext';
-import { formatRupiah, parseRupiahInput } from '../utils/formatters';
+import { usePrivacy } from '../context/PrivacyContext';
+import { parseRupiahInput } from '../utils/formatters';
 
 export const SummaryStats = ({ onViewAll, compact = false }) => {
-  const { baseSalary, setBaseSalary, transactions } = useFinance();
+  const { baseSalary, setBaseSalary, transactions, isSpendingTransaction } = useFinance();
+  const { displayMoney } = usePrivacy();
 
   const [isEditingSalary, setIsEditingSalary] = useState(false);
   const [salaryInput, setSalaryInput] = useState(
@@ -26,7 +28,7 @@ export const SummaryStats = ({ onViewAll, compact = false }) => {
       d.setDate(today.getDate() - i);
       const dateKey = d.toDateString();
       const total = transactions
-        .filter((t) => t.type === 'expense' && new Date(t.transactionDate).toDateString() === dateKey)
+        .filter((t) => isSpendingTransaction(t) && new Date(t.transactionDate).toDateString() === dateKey)
         .reduce((sum, t) => sum + Number(t.amount || 0), 0);
 
       list.push({ day: dayLabels[d.getDay()], total, isToday: i === 0 });
@@ -40,7 +42,7 @@ export const SummaryStats = ({ onViewAll, compact = false }) => {
       heightPercent: b.total > 0 ? Math.max(14, Math.round((b.total / maxVal) * 100)) : 8,
       isPeak: b.total > 0 && idx === peakIdx
     }));
-  }, [transactions]);
+  }, [transactions, isSpendingTransaction]);
 
   const last7DaysTotal = weeklyBars.reduce((sum, b) => sum + b.total, 0);
 
@@ -49,7 +51,9 @@ export const SummaryStats = ({ onViewAll, compact = false }) => {
       <div className="flex items-center justify-between gap-2">
         <div>
           <span className="text-[11px] font-medium text-muted block">Last 7 Days Spending</span>
-          <span className="text-lg font-extrabold tracking-tight block">{formatRupiah(last7DaysTotal)}</span>
+          <span className="text-lg font-extrabold tracking-tight block">
+            {displayMoney(last7DaysTotal, 'spending')}
+          </span>
         </div>
 
         <div className="flex items-center gap-2">
@@ -85,7 +89,7 @@ export const SummaryStats = ({ onViewAll, compact = false }) => {
                 style={{ background: 'var(--bg-2)', border: '1px solid var(--border)' }}
                 title="Edit Base Salary"
               >
-                Base: {formatRupiah(baseSalary)} <Edit2 className="w-3 h-3" />
+                Base: {displayMoney(baseSalary, 'income')} <Edit2 className="w-3 h-3" />
               </button>
             )
           )}
@@ -102,7 +106,7 @@ export const SummaryStats = ({ onViewAll, compact = false }) => {
           <div key={idx} className="flex-1 flex flex-col items-center gap-1.5 h-full justify-end relative">
             {item.isPeak && (
               <div className="absolute -top-5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-rose-500/20 text-rose-400 whitespace-nowrap">
-                {formatRupiah(item.total)}
+                {displayMoney(item.total, 'spending')}
               </div>
             )}
             <div className="w-full max-w-[28px] rounded-md h-full flex items-end overflow-hidden p-0.5" style={{ background: 'var(--bg-2)' }}>

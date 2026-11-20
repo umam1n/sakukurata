@@ -1,17 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { Sliders, AlertTriangle, CheckCircle, Plus, Trash2, Wand2, Calculator } from 'lucide-react';
 import { useFinance } from '../context/FinanceContext';
-import { formatRupiah } from '../utils/formatters';
-import { BUDGET_TEMPLATES } from '../utils/templates';
+import { usePrivacy } from '../context/PrivacyContext';
+import { BUDGET_TEMPLATES, inferBucketKind } from '../utils/templates';
 
 export const SalaryAllocationCard = () => {
   const { categories, saveBuckets, totalIncome, baseSalary, setBaseSalary } = useFinance();
+  const { displayMoney } = usePrivacy();
 
   const [tempCategories, setTempCategories] = useState(categories);
   const [simulatorSalary, setSimulatorSalary] = useState(totalIncome || 5000000);
   const [newCatName, setNewCatName] = useState('');
   const [newCatPercent, setNewCatPercent] = useState('10');
   const [newCatColor, setNewCatColor] = useState('#818cf8');
+  const [newCatKind, setNewCatKind] = useState('spending');
   const [showAddForm, setShowAddForm] = useState(false);
   const [savedToast, setSavedToast] = useState(false);
 
@@ -27,6 +29,15 @@ export const SalaryAllocationCard = () => {
   const isValid = currentTotalPercent === 100;
   const diffTo100 = 100 - currentTotalPercent;
 
+  const spendingPct = tempCategories
+    .filter((c) => inferBucketKind(c) === 'spending')
+    .reduce((sum, c) => sum + (Number(c.percentage) || 0), 0);
+  const savingPct = tempCategories
+    .filter((c) => inferBucketKind(c) === 'saving')
+    .reduce((sum, c) => sum + (Number(c.percentage) || 0), 0);
+  const spendingAlloc = Math.round((simulatorSalary * spendingPct) / 100);
+  const savingAlloc = Math.round((simulatorSalary * savingPct) / 100);
+
   const handlePercentageChange = (id, newPercent) => {
     const val = Math.max(0, Math.min(100, Number(newPercent) || 0));
     setTempCategories((prev) => prev.map((c) => (c.id === id ? { ...c, percentage: val } : c)));
@@ -34,6 +45,16 @@ export const SalaryAllocationCard = () => {
 
   const handleNameChange = (id, name) => {
     setTempCategories((prev) => prev.map((c) => (c.id === id ? { ...c, name } : c)));
+  };
+
+  const handleToggleKind = (id) => {
+    setTempCategories((prev) =>
+      prev.map((c) => {
+        if (c.id !== id) return c;
+        const currentKind = inferBucketKind(c);
+        return { ...c, kind: currentKind === 'saving' ? 'spending' : 'saving' };
+      })
+    );
   };
 
   const handleAdjustStep = (id, step) => {
@@ -68,9 +89,17 @@ export const SalaryAllocationCard = () => {
     if (!newCatName.trim()) return;
     setTempCategories((prev) => [
       ...prev,
-      { id: `tmp_${Date.now()}`, name: newCatName.trim(), percentage: Number(newCatPercent) || 0, color: newCatColor, icon: 'Tag' }
+      {
+        id: `tmp_${Date.now()}`,
+        name: newCatName.trim(),
+        percentage: Number(newCatPercent) || 0,
+        color: newCatColor,
+        kind: newCatKind,
+        icon: 'Tag'
+      }
     ]);
     setNewCatName('');
+    setNewCatKind('spending');
     setShowAddForm(false);
   };
 
@@ -136,7 +165,7 @@ export const SalaryAllocationCard = () => {
           <span className="flex items-center gap-1.5 text-xs font-semibold text-muted">
             <Calculator className="w-3.5 h-3.5 text-accent" /> Income Simulator
           </span>
-          <span className="text-xs font-extrabold text-accent">{formatRupiah(simulatorSalary)}</span>
+          <span className="text-xs font-extrabold text-accent">{displayMoney(simulatorSalary, 'income')}</span>
         </div>
 
         <input
@@ -156,7 +185,7 @@ export const SalaryAllocationCard = () => {
             onClick={() => setBaseSalary(simulatorSalary)}
             className="text-[11px] font-semibold text-accent hover:underline"
           >
-            Set {formatRupiah(simulatorSalary)} as my monthly base income →
+            Set {displayMoney(simulatorSalary, 'income')} as my monthly base income →
           </button>
         )}
       </div>
@@ -176,21 +205,32 @@ export const SalaryAllocationCard = () => {
         ))}
       </div>
 
-      {/* Allocation Bar */}
-      <div className="h-2.5 w-full rounded-full overflow-hidden flex" style={{ background: 'var(--bg-3)' }}>
-        {tempCategories.map((cat) => (
-          <div
-            key={cat.id}
-            style={{ width: `${cat.percentage}%`, backgroundColor: cat.color }}
-            className="h-full transition-all duration-300"
-            title={`${cat.name}: ${cat.percentage}%`}
-          />
-        ))}
+      {/* Allocation Bar + Spendable vs Savings Split Summary */}
+      <div className="space-y-2">
+        <div className="h-2.5 w-full rounded-full overflow-hidden flex" style={{ background: 'var(--bg-3)' }}>
+          {tempCategories.map((cat) => (
+            <div
+              key={cat.id}
+              style={{ width: `${cat.percentage}%`, backgroundColor: cat.color }}
+              className="h-full transition-all duration-300"
+              title={`${cat.name}: ${cat.percentage}%`}
+            />
+          ))}
+        </div>
+        <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-muted">
+          <span>
+            Spending: <strong className="text-primary">{spendingPct}%</strong> ({displayMoney(spendingAlloc, 'remainingBudget')})
+          </span>
+          <span>
+            Saving / Invest: <strong className="text-sky-400">{savingPct}%</strong> ({displayMoney(savingAlloc, 'savings')})
+          </span>
+        </div>
       </div>
 
-      {/* Bucket List */}
+      {/* Bucket List with Spending / Saving Tag Toggle */}
       <div className="space-y-2">
         {tempCategories.map((cat) => {
+          const kind = inferBucketKind(cat);
           const nominal = Math.round((simulatorSalary * (Number(cat.percentage) || 0)) / 100);
           return (
             <div
@@ -207,11 +247,26 @@ export const SalaryAllocationCard = () => {
                     onChange={(e) => handleNameChange(cat.id, e.target.value)}
                     className="w-full bg-transparent font-bold text-xs text-primary focus:outline-none truncate"
                   />
-                  <span className="text-[11px] font-semibold text-accent block">{formatRupiah(nominal)}</span>
+                  <span className="text-[11px] font-semibold text-accent block">
+                    {displayMoney(nominal, kind === 'saving' ? 'savings' : 'remainingBudget')}
+                  </span>
                 </div>
               </div>
 
-              <div className="flex items-center gap-1 flex-shrink-0">
+              <div className="flex items-center gap-1.5 flex-shrink-0">
+                <button
+                  type="button"
+                  onClick={() => handleToggleKind(cat.id)}
+                  className={`px-2 py-1 rounded-md text-[10px] font-bold border transition-colors ${
+                    kind === 'saving'
+                      ? 'bg-sky-500/15 text-sky-400 border-sky-500/30'
+                      : 'bg-white/5 text-muted border-white/10 hover:text-primary'
+                  }`}
+                  title="Click to switch between Spending vs. Saving/Investment"
+                >
+                  {kind === 'saving' ? 'Saving' : 'Spending'}
+                </button>
+
                 <div
                   className="flex items-center gap-0.5 rounded-md p-0.5"
                   style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}
@@ -268,14 +323,22 @@ export const SalaryAllocationCard = () => {
               placeholder="Bucket name (e.g. Investments)"
               value={newCatName}
               onChange={(e) => setNewCatName(e.target.value)}
-              className="flex-1 min-w-[140px] y-input px-2.5 py-1.5 text-xs"
+              className="flex-1 min-w-[130px] y-input px-2.5 py-1.5 text-xs"
               required
             />
+            <select
+              value={newCatKind}
+              onChange={(e) => setNewCatKind(e.target.value)}
+              className="y-input px-2 py-1.5 text-xs"
+            >
+              <option value="spending">Spending</option>
+              <option value="saving">Saving / Invest</option>
+            </select>
             <input
               type="number"
               value={newCatPercent}
               onChange={(e) => setNewCatPercent(e.target.value)}
-              className="w-14 y-input px-2 py-1.5 text-center text-xs font-bold"
+              className="w-12 y-input px-2 py-1.5 text-center text-xs font-bold"
             />
             <input
               type="color"
@@ -289,7 +352,7 @@ export const SalaryAllocationCard = () => {
             <button
               type="button"
               onClick={() => setShowAddForm(false)}
-              className="px-2.5 py-1.5 rounded-md text-xs text-muted hover:text-primary"
+              className="px-2 py-1.5 rounded-md text-xs text-muted hover:text-primary"
             >
               Cancel
             </button>

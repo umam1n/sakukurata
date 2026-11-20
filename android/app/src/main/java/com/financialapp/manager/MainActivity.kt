@@ -12,6 +12,8 @@ import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.PieChart
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -81,19 +83,39 @@ private fun MainDashboard(vm: SakukurataViewModel) {
                     Text("Sakukurata", fontSize = 18.sp, fontWeight = FontWeight.Black, color = Color.White)
                     Text("Halo, ${vm.profile?.displayName ?: "Pengguna"}", fontSize = 11.sp, color = TextSecondary)
                 }
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(50))
-                        .background(EmeraldAccent.copy(alpha = 0.14f))
-                        .border(1.dp, EmeraldAccent.copy(alpha = 0.3f), RoundedCornerShape(50))
-                        .padding(horizontal = 10.dp, vertical = 4.dp)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text(
-                        if (vm.isGuestMode) "Lokal" else "Cloud Sync",
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = EmeraldAccent
-                    )
+                    IconButton(
+                        onClick = { vm.toggleHideBalances() },
+                        modifier = Modifier
+                            .size(34.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(if (vm.hideBalances) EmeraldAccent.copy(alpha = 0.2f) else DarkCard)
+                            .border(1.dp, DarkCardBorder, RoundedCornerShape(10.dp))
+                    ) {
+                        Icon(
+                            imageVector = if (vm.hideBalances) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                            contentDescription = "Hide/Show Balances",
+                            tint = if (vm.hideBalances) EmeraldAccent else TextSecondary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(50))
+                            .background(EmeraldAccent.copy(alpha = 0.14f))
+                            .border(1.dp, EmeraldAccent.copy(alpha = 0.3f), RoundedCornerShape(50))
+                            .padding(horizontal = 10.dp, vertical = 4.dp)
+                    ) {
+                        Text(
+                            if (vm.isGuestMode) "Lokal" else "Cloud Sync",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = EmeraldAccent
+                        )
+                    }
                 }
             }
         },

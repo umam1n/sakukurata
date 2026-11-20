@@ -2,15 +2,20 @@ import React, { useState } from 'react';
 import { Coffee, Utensils, Bus, Zap, Plus, X } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useFinance } from '../context/FinanceContext';
-import { formatRupiah, parseRupiahInput } from '../utils/formatters';
+import { usePrivacy } from '../context/PrivacyContext';
+import { parseRupiahInput } from '../utils/formatters';
 
 const ICON_MAP = { Coffee, Utensils, Bus, Zap };
 
 export const HomeEconomicOverview = ({ onOpenAddTransaction }) => {
   const {
-    categoryStats,
-    totalExpenses,
-    totalIncome,
+    spendingCategoryStats,
+    savingCategoryStats,
+    totalSpending,
+    spendableBudget,
+    totalSaved,
+    savingsTarget,
+    savingsProgressPercent,
     addTransaction,
     categories,
     wallets,
@@ -18,25 +23,31 @@ export const HomeEconomicOverview = ({ onOpenAddTransaction }) => {
     addQuickAction,
     deleteQuickAction
   } = useFinance();
+  const { displayMoney } = usePrivacy();
 
   const [showAddQuick, setShowAddQuick] = useState(false);
   const [qaTitle, setQaTitle] = useState('');
   const [qaAmount, setQaAmount] = useState('');
 
-  const categoriesWithSpending = categoryStats.filter((c) => c.spentAmount > 0);
-  const displayCategories = categoriesWithSpending.length > 0 ? categoriesWithSpending : categoryStats.slice(0, 4);
+  const categoriesWithSpending = spendingCategoryStats.filter((c) => c.spentAmount > 0);
+  const displayCategories =
+    categoriesWithSpending.length > 0 ? categoriesWithSpending : spendingCategoryStats.slice(0, 4);
 
   const radius = 36;
   const circumference = 2 * Math.PI * radius;
-  const totalRef = totalExpenses > 0 ? totalExpenses : 1;
+  const totalRef = totalSpending > 0 ? totalSpending : 1;
+  const spendPctSum = spendingCategoryStats.reduce((s, c) => s + (Number(c.percentage) || 0), 0) || 100;
 
   let currentOffset = 0;
   const donutSlices = displayCategories.map((cat) => {
-    const fraction = totalExpenses > 0 ? cat.spentAmount / totalRef : (Number(cat.percentage) || 0) / 100;
+    const fraction =
+      totalSpending > 0
+        ? cat.spentAmount / totalRef
+        : (Number(cat.percentage) || 0) / spendPctSum;
     const strokeDasharray = `${Math.max(0, fraction * circumference)} ${circumference}`;
     const strokeDashoffset = -currentOffset;
     currentOffset += fraction * circumference;
-    const sharePercent = totalExpenses > 0 ? Math.round(fraction * 100) : Number(cat.percentage) || 0;
+    const sharePercent = Math.round(fraction * 100);
 
     return {
       ...cat,
@@ -48,7 +59,10 @@ export const HomeEconomicOverview = ({ onOpenAddTransaction }) => {
   });
 
   const handleQuickAdd = (qa) => {
-    const matchedCat = categories.find((c) => c.id === qa.bucketId) || categories[0];
+    const matchedCat =
+      spendingCategoryStats.find((c) => c.id === qa.bucketId) ||
+      spendingCategoryStats[0] ||
+      categories[0];
     const matchedWallet = wallets.find((w) => w.id === qa.walletId) || wallets[0];
 
     confetti({
@@ -74,11 +88,12 @@ export const HomeEconomicOverview = ({ onOpenAddTransaction }) => {
     e.preventDefault();
     const amt = parseRupiahInput(qaAmount);
     if (!qaTitle.trim() || amt <= 0) return;
+    const defaultSpendBucket = spendingCategoryStats[0] || categories[0];
     await addQuickAction({
       title: qaTitle.trim(),
       amount: amt,
-      bucketId: categories[0]?.id || null,
-      bucketName: categories[0]?.name || 'General',
+      bucketId: defaultSpendBucket?.id || null,
+      bucketName: defaultSpendBucket?.name || 'General',
       walletId: wallets[0]?.id || null,
       color: '#34d399',
       icon: 'Zap'
@@ -90,12 +105,12 @@ export const HomeEconomicOverview = ({ onOpenAddTransaction }) => {
 
   return (
     <div className="space-y-4">
-      {/* Compact Spending Donut Card */}
+      {/* Compact Spending Donut Card (True Expenses Only) */}
       <div className="y-card p-4 space-y-4">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="font-bold text-sm tracking-tight">Spending Overview</h2>
-            <span className="text-[11px] text-muted">Current cycle breakdown</span>
+            <span className="text-[11px] text-muted">Spendable categories only (excludes savings)</span>
           </div>
           <button
             onClick={onOpenAddTransaction}
@@ -128,14 +143,16 @@ export const HomeEconomicOverview = ({ onOpenAddTransaction }) => {
 
           <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-4">
             <span className="text-[9px] font-bold text-muted uppercase tracking-wider">Spent</span>
-            <span className="text-base font-extrabold tracking-tight">{formatRupiah(totalExpenses)}</span>
-            <span className="text-[10px] font-semibold text-accent mt-0.5">
-              of {formatRupiah(totalIncome)}
+            <span className="text-base font-extrabold tracking-tight">
+              {displayMoney(totalSpending, 'spending')}
+            </span>
+            <span className="text-[10px] font-semibold text-accent mt-0.5 truncate max-w-[120px]">
+              of {displayMoney(spendableBudget, 'remainingBudget')}
             </span>
           </div>
         </div>
 
-        {/* Compact Legend */}
+        {/* Compact Spending Legend */}
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-3" style={{ borderTop: '1px solid var(--border)' }}>
           {donutSlices.slice(0, 3).map((slice) => (
             <div key={slice.id} className="space-y-1">
@@ -145,6 +162,29 @@ export const HomeEconomicOverview = ({ onOpenAddTransaction }) => {
             </div>
           ))}
         </div>
+
+        {/* Dedicated Savings & Investment Progress Strip */}
+        {savingCategoryStats.length > 0 && (
+          <div
+            className="p-2.5 rounded-lg space-y-1.5"
+            style={{ background: 'var(--bg-2)', border: '1px solid var(--border)' }}
+          >
+            <div className="flex items-center justify-between text-[11px]">
+              <span className="font-semibold text-sky-400">Saved & Invested</span>
+              <span className="font-bold text-primary">{savingsProgressPercent}% of target</span>
+            </div>
+            <div className="h-1.5 w-full rounded-full overflow-hidden" style={{ background: 'var(--bg-3)' }}>
+              <div
+                className="h-full rounded-full transition-all duration-500 bg-sky-400"
+                style={{ width: `${Math.min(100, savingsProgressPercent)}%` }}
+              />
+            </div>
+            <div className="flex items-center justify-between text-[10px] text-muted">
+              <span>{displayMoney(totalSaved, 'savings')} saved</span>
+              <span>Target: {displayMoney(savingsTarget, 'savings')}</span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Compact Quick Expense Shortcuts */}
@@ -198,7 +238,7 @@ export const HomeEconomicOverview = ({ onOpenAddTransaction }) => {
                     <span className="truncate">{qa.title}</span>
                   </div>
                   <span className="text-[10px] font-bold text-accent block mt-0.5">
-                    + {formatRupiah(qa.amount)}
+                    + {displayMoney(qa.amount, 'spending')}
                   </span>
                 </button>
                 <button

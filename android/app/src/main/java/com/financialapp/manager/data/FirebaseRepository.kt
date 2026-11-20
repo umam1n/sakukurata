@@ -6,6 +6,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.financialapp.manager.model.*
+import com.financialapp.manager.ui.theme.formatRupiah
 import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.UserProfileChangeRequest
@@ -60,6 +61,9 @@ class SakukurataViewModel : ViewModel() {
     var bills by mutableStateOf<List<RecurringBillItem>>(emptyList())
         private set
 
+    var hideBalances by mutableStateOf(false)
+        private set
+
     private val listeners = mutableListOf<ListenerRegistration>()
 
     private val currentUid: String?
@@ -68,14 +72,56 @@ class SakukurataViewModel : ViewModel() {
     val onboardingCompleted: Boolean
         get() = profile?.onboardingCompleted == true
 
+    fun toggleHideBalances() {
+        hideBalances = !hideBalances
+    }
+
+    fun displayMoney(amount: Long): String {
+        return if (hideBalances) "Rp ••••••" else formatRupiah(amount)
+    }
+
+    fun isSavingTransaction(tx: TransactionItem): Boolean {
+        if (tx.type == "saving") return true
+        if (tx.type == "expense" && !tx.bucketId.isNullOrBlank()) {
+            val bucket = buckets.find { it.id == tx.bucketId }
+            if (bucket != null && inferBucketKind(bucket.name, bucket.kind) == "saving") {
+                return true
+            }
+        }
+        return false
+    }
+
+    fun isSpendingTransaction(tx: TransactionItem): Boolean {
+        return tx.type == "expense" && !isSavingTransaction(tx)
+    }
+
     val totalIncome: Long
         get() = (profile?.baseSalary ?: 0L) + transactions.filter { it.type == "income" }.sumOf { it.amount }
 
+    val spendableBudget: Long
+        get() = buckets
+            .filter { inferBucketKind(it.name, it.kind) == "spending" }
+            .sumOf { (totalIncome * it.percentage) / 100L }
+
+    val savingsTarget: Long
+        get() = buckets
+            .filter { inferBucketKind(it.name, it.kind) == "saving" }
+            .sumOf { (totalIncome * it.percentage) / 100L }
+
+    val totalSpending: Long
+        get() = transactions.filter { isSpendingTransaction(it) }.sumOf { it.amount }
+
     val totalExpenses: Long
-        get() = transactions.filter { it.type == "expense" }.sumOf { it.amount }
+        get() = totalSpending
+
+    val totalSaved: Long
+        get() = transactions.filter { isSavingTransaction(it) }.sumOf { it.amount }
+
+    val remainingSpendable: Long
+        get() = spendableBudget - totalSpending
 
     val overallRemainingCash: Long
-        get() = totalIncome - totalExpenses
+        get() = totalIncome - totalSpending - totalSaved
 
     init {
         if (auth != null) {
@@ -127,12 +173,14 @@ class SakukurataViewModel : ViewModel() {
 
         listeners += userRef.collection("buckets").addSnapshotListener { snap, _ ->
             buckets = snap?.documents?.map { d ->
+                val bName = d.getString("name") ?: ""
                 BudgetBucket(
                     id = d.id,
-                    name = d.getString("name") ?: "",
+                    name = bName,
                     percentage = (d.getLong("percentage") ?: 0L).toInt(),
                     color = d.getString("color") ?: "#10b981",
                     icon = d.getString("icon") ?: "Tag",
+                    kind = inferBucketKind(bName, d.getString("kind")),
                     sortOrder = (d.getLong("sortOrder") ?: 0L).toInt()
                 )
             }?.sortedBy { it.sortOrder } ?: emptyList()
@@ -162,6 +210,8 @@ class SakukurataViewModel : ViewModel() {
                         bucketName = d.getString("bucketName") ?: "Umum",
                         walletId = d.getString("walletId"),
                         walletName = d.getString("walletName") ?: "Dompet",
+                        toWalletId = d.getString("toWalletId"),
+                        toWalletName = d.getString("toWalletName") ?: "",
                         merchant = d.getString("merchant") ?: "",
                         notes = d.getString("notes") ?: "",
                         transactionDate = d.getString("transactionDate") ?: "",
@@ -336,6 +386,7 @@ class SakukurataViewModel : ViewModel() {
                             "percentage" to b.percentage,
                             "color" to b.color,
                             "icon" to b.icon,
+                            "kind" to inferBucketKind(b.name, b.kind),
                             "sortOrder" to idx
                         )
                     )
@@ -379,7 +430,7 @@ class SakukurataViewModel : ViewModel() {
 
         // Local Guest Mode
         val mappedBuckets = initialBuckets.mapIndexed { idx, b ->
-            b.copy(id = UUID.randomUUID().toString(), sortOrder = idx)
+            b.copy(id = UUID.randomUUID().toString(), kind = inferBucketKind(b.name, b.kind), sortOrder = idx)
         }
         val mappedWallets = initialWallets.map { w ->
             w.copy(id = UUID.randomUUID().toString())
@@ -443,6 +494,7 @@ class SakukurataViewModel : ViewModel() {
                         "percentage" to b.percentage,
                         "color" to b.color,
                         "icon" to b.icon,
+                        "kind" to inferBucketKind(b.name, b.kind),
                         "sortOrder" to idx
                     )
                 )
@@ -453,6 +505,7 @@ class SakukurataViewModel : ViewModel() {
         buckets = newBuckets.mapIndexed { idx, b ->
             b.copy(
                 id = if (b.id.isBlank() || b.id.startsWith("tmp_")) UUID.randomUUID().toString() else b.id,
+                kind = inferBucketKind(b.name, b.kind),
                 sortOrder = idx
             )
         }
@@ -460,18 +513,24 @@ class SakukurataViewModel : ViewModel() {
 
     fun addTransaction(tx: TransactionItem) {
         val now = nowIso()
+        val destId = if (tx.type == "saving" && !tx.toWalletId.isNullOrBlank() && tx.toWalletId != tx.walletId) tx.toWalletId else null
         val finalTx = tx.copy(
+            toWalletId = destId,
+            toWalletName = if (destId != null) tx.toWalletName else "",
             transactionDate = tx.transactionDate.ifBlank { now },
             createdAt = now
         )
         val uid = currentUid
         val firestore = db
 
-        val targetWallet = wallets.find { it.id == finalTx.walletId }
-        val updatedBalance = targetWallet?.let {
+        val sourceWallet = wallets.find { it.id == finalTx.walletId }
+        val updatedSourceBalance = sourceWallet?.let {
             val diff = if (finalTx.type == "income") finalTx.amount else -finalTx.amount
             (it.balance + diff).coerceAtLeast(0L)
         }
+
+        val destWallet = if (destId != null) wallets.find { it.id == destId } else null
+        val updatedDestBalance = destWallet?.let { it.balance + finalTx.amount }
 
         if (!isGuestMode && uid != null && firestore != null) {
             val userRef = firestore.collection("users").document(uid)
@@ -483,32 +542,60 @@ class SakukurataViewModel : ViewModel() {
                     "bucketName" to finalTx.bucketName,
                     "walletId" to finalTx.walletId,
                     "walletName" to finalTx.walletName,
+                    "toWalletId" to finalTx.toWalletId,
+                    "toWalletName" to finalTx.toWalletName,
                     "merchant" to finalTx.merchant,
                     "notes" to finalTx.notes,
                     "transactionDate" to finalTx.transactionDate,
                     "createdAt" to finalTx.createdAt
                 )
             )
-            if (targetWallet != null && updatedBalance != null) {
-                userRef.collection("wallets").document(targetWallet.id).update("balance", updatedBalance)
+            if (sourceWallet != null && updatedSourceBalance != null) {
+                userRef.collection("wallets").document(sourceWallet.id).update("balance", updatedSourceBalance)
+            }
+            if (destWallet != null && updatedDestBalance != null) {
+                userRef.collection("wallets").document(destWallet.id).update("balance", updatedDestBalance)
             }
             return
         }
 
         transactions = listOf(finalTx.copy(id = UUID.randomUUID().toString())) + transactions
-        if (targetWallet != null && updatedBalance != null) {
-            wallets = wallets.map { if (it.id == targetWallet.id) it.copy(balance = updatedBalance) else it }
+        wallets = wallets.map { w ->
+            when (w.id) {
+                sourceWallet?.id -> if (updatedSourceBalance != null) w.copy(balance = updatedSourceBalance) else w
+                destWallet?.id -> if (updatedDestBalance != null) w.copy(balance = updatedDestBalance) else w
+                else -> w
+            }
         }
     }
 
     fun deleteTransaction(tx: TransactionItem) {
         val uid = currentUid
         val firestore = db
+        val revertSourceDiff = if (tx.type == "income") -tx.amount else tx.amount
+        val destId = if (tx.type == "saving" && !tx.toWalletId.isNullOrBlank() && tx.toWalletId != tx.walletId) tx.toWalletId else null
+
         if (!isGuestMode && uid != null && firestore != null) {
-            firestore.collection("users").document(uid).collection("transactions").document(tx.id).delete()
+            val userRef = firestore.collection("users").document(uid)
+            userRef.collection("transactions").document(tx.id).delete()
+            wallets.find { it.id == tx.walletId }?.let { w ->
+                userRef.collection("wallets").document(w.id).update("balance", (w.balance + revertSourceDiff).coerceAtLeast(0L))
+            }
+            if (destId != null) {
+                wallets.find { it.id == destId }?.let { dw ->
+                    userRef.collection("wallets").document(dw.id).update("balance", (dw.balance - tx.amount).coerceAtLeast(0L))
+                }
+            }
             return
         }
         transactions = transactions.filterNot { it.id == tx.id }
+        wallets = wallets.map { w ->
+            when {
+                w.id == tx.walletId -> w.copy(balance = (w.balance + revertSourceDiff).coerceAtLeast(0L))
+                destId != null && w.id == destId -> w.copy(balance = (w.balance - tx.amount).coerceAtLeast(0L))
+                else -> w
+            }
+        }
     }
 
     fun addWallet(name: String, type: String, balance: Long, color: String = "#3b82f6") {

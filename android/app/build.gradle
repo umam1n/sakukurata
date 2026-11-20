@@ -8,14 +8,29 @@ android {
         applicationId "com.financialapp.manager"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 2
-        versionName "2.0.0"
+        versionCode 3
+        versionName "2.1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+    }
+    def releaseKeystorePath = System.getenv("ANDROID_KEYSTORE_PATH")
+    def hasReleaseKeystore = releaseKeystorePath != null && !releaseKeystorePath.trim().isEmpty() && file(releaseKeystorePath).exists()
+    if (hasReleaseKeystore) {
+        signingConfigs {
+            release {
+                storeFile file(releaseKeystorePath)
+                storePassword System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                keyAlias System.getenv("ANDROID_KEY_ALIAS")
+                keyPassword System.getenv("ANDROID_KEY_PASSWORD")
+            }
+        }
     }
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            if (hasReleaseKeystore) {
+                signingConfig signingConfigs.release
+            }
         }
     }
     buildFeatures {

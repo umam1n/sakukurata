@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from './AuthContext';
+import { inferBucketKind } from '../utils/templates';
 import {
   subscribeUserProfile,
   subscribeSubcollection,
@@ -158,6 +159,7 @@ export const FinanceProvider = ({ children }) => {
       percentage: Number(b.percentage) || 0,
       color: b.color || '#10b981',
       icon: b.icon || 'Tag',
+      kind: inferBucketKind(b),
       sortOrder: idx
     }));
 
@@ -217,6 +219,7 @@ export const FinanceProvider = ({ children }) => {
       ...b,
       id: b.id && !String(b.id).startsWith('tmp_') ? b.id : makeId('bkt'),
       percentage: Number(b.percentage) || 0,
+      kind: inferBucketKind(b),
       sortOrder: idx
     }));
     setBuckets(normalized);
@@ -264,36 +267,59 @@ export const FinanceProvider = ({ children }) => {
   const addTransaction = async (tx) => {
     const now = new Date().toISOString();
     const amount = Number(tx.amount) || 0;
+    const txType = tx.type || 'expense';
+    const sourceWalletId = tx.walletId || null;
+    const destWalletId = txType === 'saving' && tx.toWalletId && tx.toWalletId !== sourceWalletId ? tx.toWalletId : null;
+
     const payload = {
-      type: tx.type || 'expense',
+      type: txType,
       amount,
       bucketId: tx.bucketId || tx.categoryId || null,
-      bucketName: tx.bucketName || tx.categoryName || 'Umum',
-      walletId: tx.walletId || null,
-      walletName: tx.walletName || 'Dompet',
-      merchant: tx.merchant || tx.recipientMerchant || (tx.type === 'income' ? 'Pemasukan' : 'Pengeluaran'),
+      bucketName: tx.bucketName || tx.categoryName || 'General',
+      walletId: sourceWalletId,
+      walletName: tx.walletName || 'Wallet',
+      toWalletId: destWalletId,
+      toWalletName: destWalletId ? (tx.toWalletName || '') : '',
+      merchant:
+        tx.merchant ||
+        tx.recipientMerchant ||
+        (txType === 'income' ? 'Income' : txType === 'saving' ? 'Savings / Investment' : 'Expense'),
       notes: tx.notes || '',
       transactionDate: tx.transactionDate || now,
       createdAt: now
     };
 
-    const targetWallet = wallets.find((w) => w.id === payload.walletId);
-    const nextWalletBalance = targetWallet
-      ? Math.max(0, Number(targetWallet.balance || 0) + (payload.type === 'income' ? amount : -amount))
+    const sourceWallet = wallets.find((w) => w.id === sourceWalletId);
+    const destWallet = destWalletId ? wallets.find((w) => w.id === destWalletId) : null;
+
+    const nextSourceBalance = sourceWallet
+      ? Math.max(0, Number(sourceWallet.balance || 0) + (txType === 'income' ? amount : -amount))
+      : null;
+    const nextDestBalance = destWallet
+      ? Math.max(0, Number(destWallet.balance || 0) + amount)
       : null;
 
     if (isCloudMode) {
       await addSubDoc(user.uid, 'transactions', payload);
-      if (targetWallet && nextWalletBalance !== null) {
-        await updateSubDoc(user.uid, 'wallets', targetWallet.id, { balance: nextWalletBalance });
+      if (sourceWallet && nextSourceBalance !== null) {
+        await updateSubDoc(user.uid, 'wallets', sourceWallet.id, { balance: nextSourceBalance });
+      }
+      if (destWallet && nextDestBalance !== null) {
+        await updateSubDoc(user.uid, 'wallets', destWallet.id, { balance: nextDestBalance });
       }
       return;
     }
 
     const nextTx = [{ id: makeId('tx'), ...payload }, ...transactions];
-    const nextWallets = targetWallet
-      ? wallets.map((w) => (w.id === targetWallet.id ? { ...w, balance: nextWalletBalance } : w))
-      : wallets;
+    const nextWallets = wallets.map((w) => {
+      if (sourceWallet && w.id === sourceWallet.id && nextSourceBalance !== null) {
+        return { ...w, balance: nextSourceBalance };
+      }
+      if (destWallet && w.id === destWallet.id && nextDestBalance !== null) {
+        return { ...w, balance: nextDestBalance };
+      }
+      return w;
+    });
     setTransactions(nextTx);
     setWallets(nextWallets);
     persistGuest({ transactions: nextTx, wallets: nextWallets });
@@ -301,14 +327,28 @@ export const FinanceProvider = ({ children }) => {
 
   const deleteTransaction = async (txId) => {
     const target = transactions.find((t) => t.id === txId);
+    const amount = Number(target?.amount || 0);
+    const revertSourceDiff = target?.type === 'income' ? -amount : amount;
+    const destWalletId =
+      target?.type === 'saving' && target?.toWalletId && target?.toWalletId !== target?.walletId
+        ? target.toWalletId
+        : null;
+
     if (isCloudMode) {
       await deleteSubDoc(user.uid, 'transactions', txId);
       if (target?.walletId) {
         const w = wallets.find((x) => x.id === target.walletId);
         if (w) {
-          const revertDiff = target.type === 'income' ? -Number(target.amount) : Number(target.amount);
           await updateSubDoc(user.uid, 'wallets', w.id, {
-            balance: Math.max(0, Number(w.balance || 0) + revertDiff)
+            balance: Math.max(0, Number(w.balance || 0) + revertSourceDiff)
+          });
+        }
+      }
+      if (destWalletId) {
+        const dw = wallets.find((x) => x.id === destWalletId);
+        if (dw) {
+          await updateSubDoc(user.uid, 'wallets', dw.id, {
+            balance: Math.max(0, Number(dw.balance || 0) - amount)
           });
         }
       }
@@ -316,13 +356,15 @@ export const FinanceProvider = ({ children }) => {
     }
 
     const nextTx = transactions.filter((t) => t.id !== txId);
-    let nextWallets = wallets;
-    if (target?.walletId) {
-      const revertDiff = target.type === 'income' ? -Number(target.amount) : Number(target.amount);
-      nextWallets = wallets.map((w) =>
-        w.id === target.walletId ? { ...w, balance: Math.max(0, Number(w.balance || 0) + revertDiff) } : w
-      );
-    }
+    const nextWallets = wallets.map((w) => {
+      if (target?.walletId && w.id === target.walletId) {
+        return { ...w, balance: Math.max(0, Number(w.balance || 0) + revertSourceDiff) };
+      }
+      if (destWalletId && w.id === destWalletId) {
+        return { ...w, balance: Math.max(0, Number(w.balance || 0) - amount) };
+      }
+      return w;
+    });
     setTransactions(nextTx);
     setWallets(nextWallets);
     persistGuest({ transactions: nextTx, wallets: nextWallets });
@@ -456,6 +498,35 @@ export const FinanceProvider = ({ children }) => {
   const paydayDate = Number(profile?.paydayDate || 25);
   const onboardingCompleted = Boolean(profile?.onboardingCompleted);
 
+  const normalizedBuckets = useMemo(
+    () => buckets.map((b) => ({ ...b, kind: inferBucketKind(b) })),
+    [buckets]
+  );
+
+  const bucketKindById = useMemo(
+    () => new Map(normalizedBuckets.map((b) => [b.id, b.kind])),
+    [normalizedBuckets]
+  );
+
+  const isSavingTransaction = useCallback(
+    (t) => {
+      if (!t) return false;
+      if (t.type === 'saving') return true;
+      // Backward compatibility: legacy expense entries already assigned to a saving/investment bucket
+      if (t.type === 'expense') {
+        const bId = t.bucketId || t.categoryId;
+        if (bId && bucketKindById.get(bId) === 'saving') return true;
+      }
+      return false;
+    },
+    [bucketKindById]
+  );
+
+  const isSpendingTransaction = useCallback(
+    (t) => Boolean(t && t.type === 'expense' && !isSavingTransaction(t)),
+    [isSavingTransaction]
+  );
+
   const computed = useMemo(() => {
     const extraIncomeTotal = transactions
       .filter((t) => t.type === 'income')
@@ -463,43 +534,83 @@ export const FinanceProvider = ({ children }) => {
 
     const totalIncome = baseSalary + extraIncomeTotal;
 
-    const totalExpenses = transactions
-      .filter((t) => t.type === 'expense')
+    const totalSpending = transactions
+      .filter(isSpendingTransaction)
       .reduce((sum, t) => sum + Number(t.amount || 0), 0);
 
-    const categoryStats = buckets.map((b) => {
+    const totalSaved = transactions
+      .filter(isSavingTransaction)
+      .reduce((sum, t) => sum + Number(t.amount || 0), 0);
+
+    const categoryStats = normalizedBuckets.map((b) => {
       const allocatedAmount = Math.round(totalIncome * ((Number(b.percentage) || 0) / 100));
-      const spentAmount = transactions
-        .filter((t) => t.type === 'expense' && (t.bucketId === b.id || t.categoryId === b.id))
-        .reduce((sum, t) => sum + Number(t.amount || 0), 0);
+      const matchingTx = transactions.filter((t) => {
+        const txBucketId = t.bucketId || t.categoryId;
+        if (txBucketId !== b.id) return false;
+        return b.kind === 'saving' ? isSavingTransaction(t) : isSpendingTransaction(t);
+      });
 
-      const remainingAmount = allocatedAmount - spentAmount;
-      const usagePercent = allocatedAmount > 0 ? Math.round((spentAmount / allocatedAmount) * 100) : 0;
+      const actualAmount = matchingTx.reduce((sum, t) => sum + Number(t.amount || 0), 0);
+      const usagePercent = allocatedAmount > 0 ? Math.round((actualAmount / allocatedAmount) * 100) : 0;
 
+      if (b.kind === 'saving') {
+        const remainingAmount = Math.max(0, allocatedAmount - actualAmount);
+        return {
+          ...b,
+          allocatedAmount,
+          contributedAmount: actualAmount,
+          spentAmount: actualAmount, // backward-compatible alias
+          remainingAmount,
+          usagePercent,
+          isTargetMet: allocatedAmount > 0 && actualAmount >= allocatedAmount
+        };
+      }
+
+      const remainingAmount = allocatedAmount - actualAmount;
       return {
         ...b,
         allocatedAmount,
-        spentAmount,
+        contributedAmount: 0,
+        spentAmount: actualAmount,
         remainingAmount,
-        usagePercent
+        usagePercent,
+        isTargetMet: false
       };
     });
 
+    const spendingCategoryStats = categoryStats.filter((c) => c.kind === 'spending');
+    const savingCategoryStats = categoryStats.filter((c) => c.kind === 'saving');
+
+    const spendableBudget = spendingCategoryStats.reduce((sum, c) => sum + c.allocatedAmount, 0);
+    const savingsTarget = savingCategoryStats.reduce((sum, c) => sum + c.allocatedAmount, 0);
+    const remainingSpendable = spendableBudget - totalSpending;
+    const savingsProgressPercent = savingsTarget > 0 ? Math.round((totalSaved / savingsTarget) * 100) : 0;
+    const savingsRatePercent = totalIncome > 0 ? Math.round((totalSaved / totalIncome) * 100) : 0;
+
     const totalAllocated = categoryStats.reduce((sum, c) => sum + c.allocatedAmount, 0);
-    const overallRemainingCash = totalIncome - totalExpenses;
-    const totalPercentage = buckets.reduce((sum, c) => sum + (Number(c.percentage) || 0), 0);
+    const overallRemainingCash = totalIncome - totalSpending - totalSaved;
+    const totalPercentage = normalizedBuckets.reduce((sum, c) => sum + (Number(c.percentage) || 0), 0);
 
     return {
       extraIncomeTotal,
       totalIncome,
-      totalExpenses,
+      totalSpending,
+      totalExpenses: totalSpending, // compatibility alias (true spending only!)
+      totalSaved,
+      spendableBudget,
+      savingsTarget,
+      remainingSpendable,
+      savingsProgressPercent,
+      savingsRatePercent,
       totalAllocated,
       overallRemainingCash,
       categoryStats,
+      spendingCategoryStats,
+      savingCategoryStats,
       totalPercentage,
       isValidPercentageTotal: totalPercentage === 100
     };
-  }, [baseSalary, buckets, transactions]);
+  }, [baseSalary, normalizedBuckets, transactions, isSavingTransaction, isSpendingTransaction]);
 
   return (
     <FinanceContext.Provider
@@ -512,13 +623,16 @@ export const FinanceProvider = ({ children }) => {
         isCloudMode,
         isOnline,
         // Entities (expose categories alias for compatibility)
-        buckets,
-        categories: buckets,
+        buckets: normalizedBuckets,
+        categories: normalizedBuckets,
         wallets,
         transactions,
         quickActions,
         savingsGoals: goals,
         recurringBills: bills,
+        // Helpers
+        isSavingTransaction,
+        isSpendingTransaction,
         // Actions
         completeOnboarding,
         updateProfile,

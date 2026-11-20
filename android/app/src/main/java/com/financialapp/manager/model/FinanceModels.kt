@@ -1,5 +1,15 @@
 package com.financialapp.manager.model
 
+private val SAVING_BUCKET_REGEX = Regex(
+    "(saving|tabungan|invest|darurat|emergency|rdn|deposito|emas|wealth|reksadana)",
+    RegexOption.IGNORE_CASE
+)
+
+fun inferBucketKind(name: String, explicitKind: String? = null): String {
+    if (explicitKind == "saving" || explicitKind == "spending") return explicitKind
+    return if (SAVING_BUCKET_REGEX.containsMatchIn(name)) "saving" else "spending"
+}
+
 data class UserProfile(
     val displayName: String = "Pengguna",
     val email: String = "",
@@ -15,6 +25,7 @@ data class BudgetBucket(
     val percentage: Int = 0,
     val color: String = "#10b981",
     val icon: String = "Tag",
+    val kind: String = "spending", // "spending" | "saving"
     val sortOrder: Int = 0
 )
 
@@ -28,12 +39,14 @@ data class WalletItem(
 
 data class TransactionItem(
     val id: String = "",
-    val type: String = "expense", // expense | income
+    val type: String = "expense", // expense | saving | income
     val amount: Long = 0L,
     val bucketId: String? = null,
     val bucketName: String = "Umum",
     val walletId: String? = null,
     val walletName: String = "Dompet",
+    val toWalletId: String? = null,
+    val toWalletName: String = "",
     val merchant: String = "",
     val notes: String = "",
     val transactionDate: String = "",
@@ -88,11 +101,11 @@ object OnboardingTemplates {
             name = "Seimbang (40-20-20-10-10)",
             subtitle = "Cocok untuk gaji tetap dengan cicilan & dana darurat",
             buckets = listOf(
-                BudgetBucket(name = "Kebutuhan Pokok", percentage = 40, color = "#10b981", sortOrder = 0),
-                BudgetBucket(name = "Tabungan & Investasi", percentage = 20, color = "#3b82f6", sortOrder = 1),
-                BudgetBucket(name = "Cicilan & Utang", percentage = 20, color = "#f43f5e", sortOrder = 2),
-                BudgetBucket(name = "Self Reward & Hiburan", percentage = 10, color = "#f59e0b", sortOrder = 3),
-                BudgetBucket(name = "Dana Darurat", percentage = 10, color = "#8b5cf6", sortOrder = 4)
+                BudgetBucket(name = "Kebutuhan Pokok", percentage = 40, color = "#10b981", kind = "spending", sortOrder = 0),
+                BudgetBucket(name = "Tabungan & Investasi", percentage = 20, color = "#3b82f6", kind = "saving", sortOrder = 1),
+                BudgetBucket(name = "Cicilan & Utang", percentage = 20, color = "#f43f5e", kind = "spending", sortOrder = 2),
+                BudgetBucket(name = "Self Reward & Hiburan", percentage = 10, color = "#f59e0b", kind = "spending", sortOrder = 3),
+                BudgetBucket(name = "Dana Darurat", percentage = 10, color = "#8b5cf6", kind = "saving", sortOrder = 4)
             )
         ),
         BudgetTemplate(
@@ -100,9 +113,9 @@ object OnboardingTemplates {
             name = "Klasik (50-30-20)",
             subtitle = "Simpel: 50% kebutuhan, 30% gaya hidup, 20% tabungan",
             buckets = listOf(
-                BudgetBucket(name = "Kebutuhan Utama", percentage = 50, color = "#10b981", sortOrder = 0),
-                BudgetBucket(name = "Keinginan & Gaya Hidup", percentage = 30, color = "#f43f5e", sortOrder = 1),
-                BudgetBucket(name = "Tabungan & Investasi", percentage = 20, color = "#3b82f6", sortOrder = 2)
+                BudgetBucket(name = "Kebutuhan Utama", percentage = 50, color = "#10b981", kind = "spending", sortOrder = 0),
+                BudgetBucket(name = "Keinginan & Gaya Hidup", percentage = 30, color = "#f43f5e", kind = "spending", sortOrder = 1),
+                BudgetBucket(name = "Tabungan & Investasi", percentage = 20, color = "#3b82f6", kind = "saving", sortOrder = 2)
             )
         ),
         BudgetTemplate(
@@ -110,9 +123,9 @@ object OnboardingTemplates {
             name = "Bebas Cicilan (60-25-15)",
             subtitle = "Fokus kebutuhan harian & percepat tabungan",
             buckets = listOf(
-                BudgetBucket(name = "Kebutuhan Pokok", percentage = 60, color = "#10b981", sortOrder = 0),
-                BudgetBucket(name = "Tabungan & Investasi", percentage = 25, color = "#3b82f6", sortOrder = 1),
-                BudgetBucket(name = "Self Reward", percentage = 15, color = "#f59e0b", sortOrder = 2)
+                BudgetBucket(name = "Kebutuhan Pokok", percentage = 60, color = "#10b981", kind = "spending", sortOrder = 0),
+                BudgetBucket(name = "Tabungan & Investasi", percentage = 25, color = "#3b82f6", kind = "saving", sortOrder = 1),
+                BudgetBucket(name = "Self Reward", percentage = 15, color = "#f59e0b", kind = "spending", sortOrder = 2)
             )
         ),
         BudgetTemplate(
@@ -120,7 +133,7 @@ object OnboardingTemplates {
             name = "Mulai Kosong (Custom)",
             subtitle = "Buat pos anggaran sendiri sesuai gaya hidupmu",
             buckets = listOf(
-                BudgetBucket(name = "Pengeluaran Umum", percentage = 100, color = "#10b981", sortOrder = 0)
+                BudgetBucket(name = "Pengeluaran Umum", percentage = 100, color = "#10b981", kind = "spending", sortOrder = 0)
             )
         )
     )

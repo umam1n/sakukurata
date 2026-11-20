@@ -19,6 +19,7 @@ import {
 } from '../services/emailParserService';
 import { BankLogo } from './BankLogo';
 import { autoAssignBucketAndWallet } from '../utils/smartCategorizer';
+import { inferBucketKind } from '../utils/templates';
 import { formatRupiah, formatTanggal } from '../utils/formatters';
 
 export const SmartEmailParserModal = ({ isOpen, onClose }) => {
@@ -30,19 +31,19 @@ export const SmartEmailParserModal = ({ isOpen, onClose }) => {
   const [isLoadingGmail, setIsLoadingGmail] = useState(false);
   const [receipts, setReceipts] = useState([]);
   const [selectedIds, setSelectedIds] = useState(new Set());
-  const [rowOverrides, setRowOverrides] = useState({}); // { [id]: { bucketId, walletId } }
+  const [rowOverrides, setRowOverrides] = useState({}); // { [id]: { txType, bucketId, walletId, intentLabel } }
   const [scanStats, setScanStats] = useState(null);
 
   // Paste tab state
   const [pasteText, setPasteText] = useState('');
   const [parsedData, setParsedData] = useState(null);
+  const [pasteTxType, setPasteTxType] = useState('expense');
   const [selectedCategoryId, setSelectedCategoryId] = useState('');
   const [selectedWalletId, setSelectedWalletId] = useState('');
 
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
-  // Collect already-imported Gmail message IDs from existing transactions
   const existingGmailIds = useMemo(() => {
     const ids = new Set();
     transactions.forEach((tx) => {
@@ -54,12 +55,10 @@ export const SmartEmailParserModal = ({ isOpen, onClose }) => {
 
   if (!isOpen) return null;
 
-  const findBestWalletId = (walletName) => {
-    const lower = (walletName || '').toLowerCase();
-    const matched = wallets.find(
-      (w) => w.name.toLowerCase().includes(lower) || lower.includes(w.name.toLowerCase())
-    );
-    return matched?.id || wallets[0]?.id || '';
+  const getBucketsForType = (txType) => {
+    const targetKind = txType === 'saving' ? 'saving' : 'spending';
+    const filtered = categories.filter((c) => inferBucketKind(c) === targetKind);
+    return filtered.length > 0 ? filtered : categories;
   };
 
   const runScan = async (tokenToUse) => {
@@ -84,7 +83,9 @@ export const SmartEmailParserModal = ({ isOpen, onClose }) => {
           buckets: categories,
           wallets
         });
+        const txType = r.parsed.type === 'income' ? 'income' : smart.suggestedTxType || 'expense';
         defaults[r.id] = {
+          txType,
           bucketId: smart.bucketId,
           walletId: smart.walletId,
           intentLabel: smart.intentLabel,
@@ -128,16 +129,29 @@ export const SmartEmailParserModal = ({ isOpen, onClose }) => {
     });
   };
 
+  const handleRowTypeChange = (id, nextType) => {
+    const pool = getBucketsForType(nextType);
+    setRowOverrides((prev) => {
+      const cur = prev[id] || {};
+      const validBucket = pool.some((b) => b.id === cur.bucketId) ? cur.bucketId : (pool[0]?.id || '');
+      return {
+        ...prev,
+        [id]: { ...cur, txType: nextType, bucketId: validBucket }
+      };
+    });
+  };
+
   const importReceiptItem = async (item) => {
     const override = rowOverrides[item.id] || {};
+    const txType = override.txType || item.parsed.type || 'expense';
     const bucket = categories.find((c) => c.id === override.bucketId) || categories[0];
     const wallet = wallets.find((w) => w.id === override.walletId) || wallets[0];
 
     await addTransaction({
-      type: item.parsed.type || 'expense',
+      type: txType,
       amount: item.parsed.amount,
-      bucketId: item.parsed.type === 'income' ? null : (bucket?.id || null),
-      bucketName: item.parsed.type === 'income' ? 'Income' : (bucket?.name || 'General'),
+      bucketId: txType === 'income' ? null : (bucket?.id || null),
+      bucketName: txType === 'income' ? 'Income' : (bucket?.name || 'General'),
       walletId: wallet?.id || null,
       walletName: wallet?.name || item.parsed.walletName || 'Bank',
       merchant: item.parsed.recipientOrMerchant,
@@ -178,7 +192,9 @@ export const SmartEmailParserModal = ({ isOpen, onClose }) => {
         buckets: categories,
         wallets
       });
+      const resolvedType = result.type === 'income' ? 'income' : smart.suggestedTxType || 'expense';
       setParsedData({ ...result, intentLabel: smart.intentLabel });
+      setPasteTxType(resolvedType);
       setSelectedCategoryId(smart.bucketId);
       setSelectedWalletId(smart.walletId);
     } else {
@@ -197,10 +213,10 @@ export const SmartEmailParserModal = ({ isOpen, onClose }) => {
     const matchedWallet = wallets.find((w) => w.id === selectedWalletId);
 
     await addTransaction({
-      type: parsedData.type || 'expense',
+      type: pasteTxType,
       amount: parsedData.amount,
-      bucketId: parsedData.type === 'income' ? null : (selectedCategoryId || null),
-      bucketName: parsedData.type === 'income' ? 'Income' : (matchedBucket?.name || 'General'),
+      bucketId: pasteTxType === 'income' ? null : (selectedCategoryId || null),
+      bucketName: pasteTxType === 'income' ? 'Income' : (matchedBucket?.name || 'General'),
       walletId: selectedWalletId || null,
       walletName: matchedWallet?.name || parsedData.walletName || 'Bank',
       merchant: parsedData.recipientOrMerchant,
@@ -213,10 +229,11 @@ export const SmartEmailParserModal = ({ isOpen, onClose }) => {
     setPasteText('');
   };
 
+  const pasteBuckets = getBucketsForType(pasteTxType);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
       <div className="y-card w-full max-w-2xl p-5 space-y-4 max-h-[88vh] flex flex-col">
-        {/* Header */}
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-lg y-pill-accent flex items-center justify-center">
@@ -225,7 +242,7 @@ export const SmartEmailParserModal = ({ isOpen, onClose }) => {
             <div>
               <h2 className="text-sm font-extrabold">Smart Bank Receipt Importer</h2>
               <p className="text-[11px] text-muted">
-                Filters out promos, newsletters & OTPs — imports verified Indonesian bank receipts only.
+                Filters out promos & OTPs — classifies Expenses vs. Savings/Investments automatically.
               </p>
             </div>
           </div>
@@ -234,7 +251,6 @@ export const SmartEmailParserModal = ({ isOpen, onClose }) => {
           </button>
         </div>
 
-        {/* Tabs */}
         <div className="grid grid-cols-2 gap-1 p-1 rounded-lg" style={{ background: 'var(--bg-2)' }}>
           <button
             onClick={() => setActiveSubTab('gmail')}
@@ -268,11 +284,9 @@ export const SmartEmailParserModal = ({ isOpen, onClose }) => {
           </div>
         )}
 
-        {/* Body */}
         <div className="overflow-y-auto flex-1 space-y-3 pr-1">
           {activeSubTab === 'gmail' ? (
             <div className="space-y-3">
-              {/* Controls Row */}
               <div className="flex flex-wrap items-center gap-2">
                 <select
                   value={daysWindow}
@@ -306,7 +320,6 @@ export const SmartEmailParserModal = ({ isOpen, onClose }) => {
                 )}
               </div>
 
-              {/* Filter Stats Summary */}
               {scanStats && (
                 <div
                   className="px-3 py-2 rounded-lg flex flex-wrap items-center justify-between gap-2 text-[11px]"
@@ -322,7 +335,6 @@ export const SmartEmailParserModal = ({ isOpen, onClose }) => {
                 </div>
               )}
 
-              {/* Receipts Review List */}
               {receipts.length > 0 && (
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
@@ -341,7 +353,10 @@ export const SmartEmailParserModal = ({ isOpen, onClose }) => {
                   {receipts.map((item) => {
                     const checked = selectedIds.has(item.id);
                     const override = rowOverrides[item.id] || {};
-                    const isIncome = item.parsed.type === 'income';
+                    const txType = override.txType || item.parsed.type || 'expense';
+                    const isIncome = txType === 'income';
+                    const isSaving = txType === 'saving';
+                    const bucketPool = getBucketsForType(txType);
 
                     return (
                       <div
@@ -390,20 +405,30 @@ export const SmartEmailParserModal = ({ isOpen, onClose }) => {
                           <div className="text-right flex-shrink-0">
                             <span
                               className={`text-xs font-extrabold block ${
-                                isIncome ? 'text-emerald-400' : 'text-rose-400'
+                                isIncome ? 'text-emerald-400' : isSaving ? 'text-sky-400' : 'text-rose-400'
                               }`}
                             >
-                              {isIncome ? '+' : '-'}
+                              {isIncome ? '+' : isSaving ? '↗ ' : '-'}
                               {formatRupiah(item.parsed.amount)}
                             </span>
                             <span className="text-[9px] uppercase font-bold text-dim">
-                              {isIncome ? 'Income' : 'Expense'}
+                              {isIncome ? 'Income' : isSaving ? 'Save / Invest' : 'Expense'}
                             </span>
                           </div>
                         </div>
 
-                        {/* Bucket & Wallet Selectors */}
-                        <div className="grid grid-cols-2 gap-2 pl-6">
+                        {/* Type, Bucket & Wallet Selectors */}
+                        <div className="grid grid-cols-3 gap-2 pl-6">
+                          <select
+                            value={txType}
+                            onChange={(e) => handleRowTypeChange(item.id, e.target.value)}
+                            className="y-input px-2 py-1 text-[11px] font-semibold"
+                          >
+                            <option value="expense">Expense</option>
+                            <option value="saving">Save / Invest</option>
+                            <option value="income">Income</option>
+                          </select>
+
                           {!isIncome && (
                             <select
                               value={override.bucketId || ''}
@@ -415,11 +440,12 @@ export const SmartEmailParserModal = ({ isOpen, onClose }) => {
                               }
                               className="y-input px-2 py-1 text-[11px]"
                             >
-                              {categories.map((c) => (
+                              {bucketPool.map((c) => (
                                 <option key={c.id} value={c.id}>{c.name}</option>
                               ))}
                             </select>
                           )}
+
                           <select
                             value={override.walletId || ''}
                             onChange={(e) =>
@@ -445,7 +471,7 @@ export const SmartEmailParserModal = ({ isOpen, onClose }) => {
             <div className="space-y-3">
               <textarea
                 rows={5}
-                placeholder="Paste bank receipt email text (myBCA, Livin' Mandiri, BRImo, BNI, Jago, SeaBank, GoPay, OVO, DANA, QRIS)..."
+                placeholder="Paste bank receipt email text (myBCA, Livin' Mandiri, BRImo, BNI, Jago, SeaBank, GoPay, OVO, DANA, Bibit, QRIS)..."
                 value={pasteText}
                 onChange={(e) => setPasteText(e.target.value)}
                 className="w-full y-input p-3 text-xs resize-none"
@@ -476,20 +502,36 @@ export const SmartEmailParserModal = ({ isOpen, onClose }) => {
                     <span className="text-sm font-extrabold text-accent">{formatRupiah(parsedData.amount)}</span>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-3 gap-2">
                     <select
-                      value={selectedCategoryId}
-                      onChange={(e) => setSelectedCategoryId(e.target.value)}
-                      className="y-input px-2.5 py-1.5 text-xs"
+                      value={pasteTxType}
+                      onChange={(e) => {
+                        const next = e.target.value;
+                        setPasteTxType(next);
+                        const pool = getBucketsForType(next);
+                        if (pool[0]) setSelectedCategoryId(pool[0].id);
+                      }}
+                      className="y-input px-2 py-1.5 text-xs font-semibold"
                     >
-                      {categories.map((c) => (
-                        <option key={c.id} value={c.id}>{c.name}</option>
-                      ))}
+                      <option value="expense">Expense</option>
+                      <option value="saving">Save / Invest</option>
+                      <option value="income">Income</option>
                     </select>
+                    {pasteTxType !== 'income' && (
+                      <select
+                        value={selectedCategoryId}
+                        onChange={(e) => setSelectedCategoryId(e.target.value)}
+                        className="y-input px-2 py-1.5 text-xs"
+                      >
+                        {pasteBuckets.map((c) => (
+                          <option key={c.id} value={c.id}>{c.name}</option>
+                        ))}
+                      </select>
+                    )}
                     <select
                       value={selectedWalletId}
                       onChange={(e) => setSelectedWalletId(e.target.value)}
-                      className="y-input px-2.5 py-1.5 text-xs"
+                      className={`y-input px-2 py-1.5 text-xs ${pasteTxType === 'income' ? 'col-span-2' : ''}`}
                     >
                       {wallets.map((w) => (
                         <option key={w.id} value={w.id}>{w.name}</option>

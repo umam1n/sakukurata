@@ -1,16 +1,30 @@
 // Fluid Onboarding Templates (UI-only starting points — never hardcoded into the database)
 
+const SAVING_BUCKET_REGEX = /saving|tabungan|invest|darurat|emergency|rdn|deposito|emas|wealth|reksadana/i;
+
+/**
+ * Resolves whether a budget bucket tracks Spendable Expenses ('spending')
+ * or Wealth Building / Savings & Investments ('saving').
+ * Falls back to name inference for legacy buckets created without an explicit `kind`.
+ */
+export const inferBucketKind = (bucket) => {
+  if (bucket?.kind === 'saving' || bucket?.kind === 'spending') {
+    return bucket.kind;
+  }
+  return SAVING_BUCKET_REGEX.test(bucket?.name || '') ? 'saving' : 'spending';
+};
+
 export const BUDGET_TEMPLATES = [
   {
     id: 'balanced',
     name: 'Balanced (40-20-20-10-10)',
     subtitle: 'Great for fixed salaries with installments & emergency reserves',
     buckets: [
-      { name: 'Essentials', percentage: 40, color: '#34d399', icon: 'ShoppingCart' },
-      { name: 'Savings & Investments', percentage: 20, color: '#60a5fa', icon: 'PiggyBank' },
-      { name: 'Bills & Debt', percentage: 20, color: '#fb7185', icon: 'CreditCard' },
-      { name: 'Lifestyle & Fun', percentage: 10, color: '#fbbf24', icon: 'Gift' },
-      { name: 'Emergency Fund', percentage: 10, color: '#c084fc', icon: 'ShieldAlert' }
+      { name: 'Essentials', percentage: 40, color: '#34d399', icon: 'ShoppingCart', kind: 'spending' },
+      { name: 'Savings & Investments', percentage: 20, color: '#60a5fa', icon: 'PiggyBank', kind: 'saving' },
+      { name: 'Bills & Debt', percentage: 20, color: '#fb7185', icon: 'CreditCard', kind: 'spending' },
+      { name: 'Lifestyle & Fun', percentage: 10, color: '#fbbf24', icon: 'Gift', kind: 'spending' },
+      { name: 'Emergency Fund', percentage: 10, color: '#c084fc', icon: 'ShieldAlert', kind: 'saving' }
     ]
   },
   {
@@ -18,9 +32,9 @@ export const BUDGET_TEMPLATES = [
     name: 'Classic (50-30-20)',
     subtitle: 'Simple rule: 50% needs, 30% wants, 20% savings',
     buckets: [
-      { name: 'Needs', percentage: 50, color: '#34d399', icon: 'ShoppingCart' },
-      { name: 'Wants & Lifestyle', percentage: 30, color: '#fb7185', icon: 'Gift' },
-      { name: 'Savings & Investments', percentage: 20, color: '#60a5fa', icon: 'PiggyBank' }
+      { name: 'Needs', percentage: 50, color: '#34d399', icon: 'ShoppingCart', kind: 'spending' },
+      { name: 'Wants & Lifestyle', percentage: 30, color: '#fb7185', icon: 'Gift', kind: 'spending' },
+      { name: 'Savings & Investments', percentage: 20, color: '#60a5fa', icon: 'PiggyBank', kind: 'saving' }
     ]
   },
   {
@@ -28,9 +42,9 @@ export const BUDGET_TEMPLATES = [
     name: 'Debt-Free Focus (60-25-15)',
     subtitle: 'Daily living focus with accelerated savings',
     buckets: [
-      { name: 'Living Essentials', percentage: 60, color: '#34d399', icon: 'ShoppingCart' },
-      { name: 'Savings & Investments', percentage: 25, color: '#60a5fa', icon: 'PiggyBank' },
-      { name: 'Personal & Fun', percentage: 15, color: '#fbbf24', icon: 'Gift' }
+      { name: 'Living Essentials', percentage: 60, color: '#34d399', icon: 'ShoppingCart', kind: 'spending' },
+      { name: 'Savings & Investments', percentage: 25, color: '#60a5fa', icon: 'PiggyBank', kind: 'saving' },
+      { name: 'Personal & Fun', percentage: 15, color: '#fbbf24', icon: 'Gift', kind: 'spending' }
     ]
   },
   {
@@ -38,7 +52,7 @@ export const BUDGET_TEMPLATES = [
     name: 'Start Blank (Custom)',
     subtitle: 'Create your own budget buckets from scratch',
     buckets: [
-      { name: 'General Budget', percentage: 100, color: '#34d399', icon: 'Tag' }
+      { name: 'General Budget', percentage: 100, color: '#34d399', icon: 'Tag', kind: 'spending' }
     ]
   }
 ];

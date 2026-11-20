@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { Target, Calendar, Plus, Trash2, X } from 'lucide-react';
 import { useFinance } from '../context/FinanceContext';
-import { formatRupiah, calculatePercentage } from '../utils/formatters';
+import { usePrivacy } from '../context/PrivacyContext';
+import { calculatePercentage } from '../utils/formatters';
 
 export const SavingsGoalsCard = () => {
   const { savingsGoals, addGoal, topUpGoal, deleteGoal } = useFinance();
+  const { displayMoney } = usePrivacy();
 
   const [showForm, setShowForm] = useState(false);
   const [title, setTitle] = useState('');
@@ -132,8 +134,8 @@ export const SavingsGoalsCard = () => {
 
                 <div>
                   <div className="flex justify-between text-[10px] text-muted mb-1">
-                    <strong className="text-primary">{formatRupiah(sg.currentAmount)}</strong>
-                    <span>{formatRupiah(sg.targetAmount)}</span>
+                    <strong className="text-primary">{displayMoney(sg.currentAmount, 'savings')}</strong>
+                    <span>{displayMoney(sg.targetAmount, 'savings')}</span>
                   </div>
                   <div className="h-1.5 w-full rounded-full overflow-hidden" style={{ background: 'var(--bg-3)' }}>
                     <div

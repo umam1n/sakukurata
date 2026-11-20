@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from 'react';
-import { Plus, Trash2, X, Search, Pencil, Check } from 'lucide-react';
+import { Plus, Trash2, X, Search, Pencil, Check, Eye, EyeOff } from 'lucide-react';
 import { useFinance } from '../context/FinanceContext';
-import { formatRupiah, parseRupiahInput } from '../utils/formatters';
+import { usePrivacy } from '../context/PrivacyContext';
+import { parseRupiahInput } from '../utils/formatters';
 import { INDONESIAN_INSTITUTIONS, INSTITUTION_TYPE_LABELS } from '../utils/indonesianBanks';
 import { BankLogo } from './BankLogo';
 
@@ -12,6 +13,7 @@ const formatThousands = (raw) => {
 
 export const MultiWalletCard = ({ onOpenAddTransaction }) => {
   const { wallets, addWallet, updateWallet, deleteWallet } = useFinance();
+  const { displayMoney, isScopeHidden, toggleScope, hiddenKpiCards } = usePrivacy();
 
   // Add wallet state
   const [showAddForm, setShowAddForm] = useState(false);
@@ -88,10 +90,29 @@ export const MultiWalletCard = ({ onOpenAddTransaction }) => {
   return (
     <div className="y-card p-4 space-y-4">
       <div className="flex items-center justify-between gap-2">
-        <div>
-          <span className="text-[11px] text-muted font-medium block">Total Balance Across Wallets</span>
-          <h2 className="text-xl font-extrabold tracking-tight text-accent">{formatRupiah(totalWalletBalance)}</h2>
-        </div>
+        {!hiddenKpiCards.walletsBanner ? (
+          <div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[11px] text-muted font-medium block">Total Balance Across Wallets</span>
+              <button
+                type="button"
+                onClick={() => toggleScope('wallets')}
+                className="p-0.5 rounded text-dim hover:text-accent"
+                title={isScopeHidden('wallets') ? 'Show wallet balances' : 'Hide wallet balances'}
+              >
+                {isScopeHidden('wallets') ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+              </button>
+            </div>
+            <h2 className="text-xl font-extrabold tracking-tight text-accent">
+              {displayMoney(totalWalletBalance, 'wallets')}
+            </h2>
+          </div>
+        ) : (
+          <div>
+            <span className="text-sm font-extrabold tracking-tight block">My Wallets</span>
+            <span className="text-[11px] text-muted">{wallets.length} accounts</span>
+          </div>
+        )}
 
         <div className="flex items-center gap-1.5">
           <button
@@ -284,7 +305,7 @@ export const MultiWalletCard = ({ onOpenAddTransaction }) => {
                 </div>
 
                 <div className="flex items-center gap-1.5">
-                  <span className="text-xs font-bold mr-1">{formatRupiah(w.balance)}</span>
+                  <span className="text-xs font-bold mr-1">{displayMoney(w.balance, 'wallets')}</span>
                   <button
                     type="button"
                     onClick={() => startEditing(w)}

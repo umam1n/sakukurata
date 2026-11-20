@@ -2,21 +2,40 @@ import React from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { PieChart as ChartIcon, Activity } from 'lucide-react';
 import { useFinance } from '../context/FinanceContext';
-import { formatRupiah } from '../utils/formatters';
+import { usePrivacy } from '../context/PrivacyContext';
 
 export const AnalyticsCharts = () => {
-  const { categoryStats, totalExpenses, totalIncome, isValidPercentageTotal } = useFinance();
+  const {
+    spendingCategoryStats,
+    totalSpending,
+    spendableBudget,
+    totalIncome,
+    totalSaved,
+    savingsTarget,
+    savingsRatePercent,
+    savingsProgressPercent,
+    isValidPercentageTotal
+  } = useFinance();
+  const { displayMoney } = usePrivacy();
 
-  const pieData = categoryStats
+  // Plot true spending buckets only (never treat savings/investments as expenses)
+  const pieData = spendingCategoryStats
     .map((c) => ({ name: c.name, value: c.spentAmount, color: c.color || '#34d399' }))
     .filter((c) => c.value > 0);
 
-  const overallSpentRatio = totalIncome > 0 ? totalExpenses / totalIncome : 0;
+  const spendRatio =
+    spendableBudget > 0
+      ? totalSpending / spendableBudget
+      : totalIncome > 0
+        ? totalSpending / totalIncome
+        : 0;
 
-  let healthScore = 95;
-  if (overallSpentRatio > 0.7) healthScore -= 15;
-  if (overallSpentRatio > 0.85) healthScore -= 20;
-  if (overallSpentRatio > 1.0) healthScore -= 35;
+  let healthScore = 85;
+  if (spendRatio <= 0.8) healthScore += 5;
+  if (spendRatio > 0.9) healthScore -= 15;
+  if (spendRatio > 1.0) healthScore -= 30;
+  if (savingsTarget > 0 && totalSaved >= savingsTarget) healthScore += 10;
+  else if (savingsRatePercent >= 15) healthScore += 5;
   if (!isValidPercentageTotal) healthScore -= 10;
   healthScore = Math.max(10, Math.min(100, healthScore));
 
@@ -28,9 +47,9 @@ export const AnalyticsCharts = () => {
             <h3 className="font-bold text-sm flex items-center gap-1.5">
               <ChartIcon className="w-4 h-4 text-accent" /> Expense Distribution
             </h3>
-            <p className="text-[11px] text-muted">Actual spending by budget bucket</p>
+            <p className="text-[11px] text-muted">Actual spending only (savings & investments excluded)</p>
           </div>
-          <span className="text-xs font-bold text-accent">{formatRupiah(totalExpenses)}</span>
+          <span className="text-xs font-bold text-accent">{displayMoney(totalSpending, 'spending')}</span>
         </div>
 
         {pieData.length === 0 ? (
@@ -38,7 +57,7 @@ export const AnalyticsCharts = () => {
             className="h-48 flex items-center justify-center text-xs text-muted rounded-lg"
             style={{ background: 'var(--bg-2)', border: '1px solid var(--border)' }}
           >
-            No expense data to chart yet.
+            No spending data to chart yet.
           </div>
         ) : (
           <div className="h-56 w-full">
@@ -50,7 +69,7 @@ export const AnalyticsCharts = () => {
                   ))}
                 </Pie>
                 <Tooltip
-                  formatter={(value) => [formatRupiah(value), 'Spent']}
+                  formatter={(value) => [displayMoney(value, 'spending'), 'Spent']}
                   contentStyle={{
                     backgroundColor: 'var(--bg-card)',
                     borderColor: 'var(--border)',
@@ -81,8 +100,8 @@ export const AnalyticsCharts = () => {
 
         <p className={`text-xs font-semibold ${healthScore >= 75 ? 'text-accent' : 'text-amber-400'}`}>
           {healthScore >= 75
-            ? 'Your spending ratio is healthy and balanced.'
-            : 'Spending is trending high — review your buckets.'}
+            ? 'Spendable budget is under control and savings are on track.'
+            : 'Spendable budget usage is running high — review spending buckets.'}
         </p>
 
         <div
@@ -90,11 +109,17 @@ export const AnalyticsCharts = () => {
           style={{ background: 'var(--bg-2)', border: '1px solid var(--border)' }}
         >
           <div className="flex justify-between">
-            <span>Expense-to-Income Ratio</span>
-            <strong className="text-primary">{Math.round(overallSpentRatio * 100)}%</strong>
+            <span>Spendable Budget Used</span>
+            <strong className="text-primary">{Math.round(spendRatio * 100)}%</strong>
           </div>
           <div className="flex justify-between">
-            <span>100% Budget Discipline</span>
+            <span>Savings & Investment Rate</span>
+            <strong className="text-sky-400">
+              {savingsRatePercent}% of income ({savingsProgressPercent}% goal)
+            </strong>
+          </div>
+          <div className="flex justify-between">
+            <span>100% Budget Split</span>
             <strong className={isValidPercentageTotal ? 'text-accent' : 'text-amber-400'}>
               {isValidPercentageTotal ? 'Balanced' : 'Needs Review'}
             </strong>

@@ -11,18 +11,31 @@ import {
   RotateCcw,
   Palette,
   Sun,
-  Moon
+  Moon,
+  EyeOff,
+  Eye,
+  Shield
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useFinance } from '../context/FinanceContext';
 import { useTheme } from '../context/ThemeContext';
+import { usePrivacy } from '../context/PrivacyContext';
 
 export const SettingsScreen = ({ onOpenEmailParser }) => {
   const { user, isGuest, logout } = useAuth();
   const { profile, isCloudMode, isOnline, updateProfile, resetGuestData } = useFinance();
   const { themeMode, setThemeMode, accentColor, setAccentColor, accentPresets } = useTheme();
+  const {
+    hideAll,
+    toggleHideAll,
+    hiddenScopes,
+    toggleScope,
+    hiddenKpiCards,
+    toggleKpiCard,
+    resetPrivacy
+  } = usePrivacy();
 
-  const [activeTab, setActiveTab] = useState('appearance'); // 'appearance' | 'general' | 'import'
+  const [activeTab, setActiveTab] = useState('appearance'); // 'appearance' | 'privacy' | 'general' | 'import'
   const [displayName, setDisplayName] = useState(profile?.displayName || '');
   const [paydayDate, setPaydayDate] = useState(String(profile?.paydayDate || 25));
   const [saved, setSaved] = useState(false);
@@ -39,13 +52,31 @@ export const SettingsScreen = ({ onOpenEmailParser }) => {
 
   const tabs = [
     { id: 'appearance', label: 'Appearance', icon: Palette },
+    { id: 'privacy', label: 'Privacy & Hide', icon: Shield },
     { id: 'general', label: 'Account & Profile', icon: Sliders },
     { id: 'import', label: 'Gmail & Import', icon: Mail }
   ];
 
+  const scopeControls = [
+    { key: 'wallets', label: 'All-Time Wallet Balances', desc: 'Mask total & per-account wallet balances' },
+    { key: 'remainingBudget', label: 'Monthly Remaining Budget', desc: 'Mask spendable budget left this cycle' },
+    { key: 'income', label: 'Monthly Income & Base Salary', desc: 'Mask salary & extra income figures' },
+    { key: 'spending', label: 'Total Spending & 7D Trend', desc: 'Mask expense totals & quick shortcut amounts' },
+    { key: 'savings', label: 'Savings & Investments', desc: 'Mask saved/invested amounts & savings goals' },
+    { key: 'transactions', label: 'Transaction Amounts', desc: 'Mask amounts inside transaction history' }
+  ];
+
+  const cardVisibilityControls = [
+    { key: 'income', label: 'Hide "Monthly Income" Card on Overview' },
+    { key: 'spending', label: 'Hide "Total Spending" Card on Overview' },
+    { key: 'savings', label: 'Hide "Saved & Invested" Card on Overview' },
+    { key: 'remaining', label: 'Hide "Remaining Budget" Card on Overview' },
+    { key: 'walletsBanner', label: 'Hide "All-Time Wallet Balance" Total on Wallets Tab' }
+  ];
+
   return (
     <div className="y-card p-5 space-y-5">
-      {/* Yukinon-style Horizontal Settings Sub-Tabs */}
+      {/* Horizontal Settings Sub-Tabs */}
       <div className="flex items-center gap-1.5 pb-3 overflow-x-auto" style={{ borderBottom: '1px solid var(--border)' }}>
         {tabs.map((t) => {
           const Icon = t.icon;
@@ -65,10 +96,9 @@ export const SettingsScreen = ({ onOpenEmailParser }) => {
         })}
       </div>
 
-      {/* TAB 1: APPEARANCE (Dark/Light + 8 Yukinon Accent Presets + Custom Color Picker) */}
+      {/* TAB 1: APPEARANCE */}
       {activeTab === 'appearance' && (
         <div className="space-y-5">
-          {/* Theme Mode */}
           <div className="space-y-2">
             <label className="text-xs font-bold block">Theme Mode</label>
             <div className="grid grid-cols-2 gap-2.5 max-w-xs">
@@ -95,7 +125,6 @@ export const SettingsScreen = ({ onOpenEmailParser }) => {
             </div>
           </div>
 
-          {/* Color Palette Presets */}
           <div className="space-y-2.5">
             <div className="flex items-center justify-between">
               <label className="text-xs font-bold">Accent Color Palette</label>
@@ -116,17 +145,13 @@ export const SettingsScreen = ({ onOpenEmailParser }) => {
                       border: `1px solid ${selected ? preset.color : 'var(--border)'}`
                     }}
                   >
-                    <span
-                      className="w-3.5 h-3.5 rounded-full flex-shrink-0"
-                      style={{ backgroundColor: preset.color }}
-                    />
+                    <span className="w-3.5 h-3.5 rounded-full flex-shrink-0" style={{ backgroundColor: preset.color }} />
                     <span className="truncate">{preset.label}</span>
                   </button>
                 );
               })}
             </div>
 
-            {/* Custom Hex Picker */}
             <div
               className="p-3 rounded-lg flex items-center justify-between gap-3"
               style={{ background: 'var(--bg-2)', border: '1px solid var(--border)' }}
@@ -146,7 +171,112 @@ export const SettingsScreen = ({ onOpenEmailParser }) => {
         </div>
       )}
 
-      {/* TAB 2: ACCOUNT & PROFILE */}
+      {/* TAB 2: PRIVACY & HIDE CONTROLS */}
+      {activeTab === 'privacy' && (
+        <div className="space-y-5">
+          {/* Master Toggle */}
+          <div
+            className="p-3.5 rounded-lg flex items-center justify-between gap-3"
+            style={{ background: 'var(--bg-2)', border: '1px solid var(--border)' }}
+          >
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg y-pill-accent flex items-center justify-center">
+                {hideAll ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </div>
+              <div>
+                <p className="text-xs font-bold">Master Privacy Mode</p>
+                <p className="text-[11px] text-muted">Mask all monetary values across the workspace (Rp ••••••).</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={toggleHideAll}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold ${
+                hideAll ? 'y-btn-accent' : 'text-muted hover:text-primary'
+              }`}
+              style={!hideAll ? { background: 'var(--bg-card)', border: '1px solid var(--border)' } : undefined}
+            >
+              {hideAll ? 'Hidden' : 'Visible'}
+            </button>
+          </div>
+
+          {/* Granular Number Masking */}
+          <div className="space-y-2">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-muted block">
+              Mask Specific Numbers (Rp ••••••)
+            </span>
+            <div className="space-y-1.5">
+              {scopeControls.map((item) => {
+                const masked = Boolean(hiddenScopes[item.key]);
+                return (
+                  <div
+                    key={item.key}
+                    className="px-3 py-2.5 rounded-lg flex items-center justify-between gap-3"
+                    style={{ background: 'var(--bg-2)', border: '1px solid var(--border)' }}
+                  >
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold">{item.label}</p>
+                      <p className="text-[10px] text-muted">{item.desc}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => toggleScope(item.key)}
+                      className={`px-2.5 py-1 rounded-md text-[11px] font-bold flex items-center gap-1 flex-shrink-0 ${
+                        masked ? 'y-pill-accent' : 'text-muted'
+                      }`}
+                      style={!masked ? { background: 'var(--bg-card)', border: '1px solid var(--border)' } : undefined}
+                    >
+                      {masked ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                      {masked ? 'Hidden' : 'Visible'}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Hide Entire Cards Completely */}
+          <div className="space-y-2">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-muted block">
+              Hide Entire Cards from Dashboard
+            </span>
+            <div className="space-y-1.5">
+              {cardVisibilityControls.map((c) => {
+                const hidden = Boolean(hiddenKpiCards[c.key]);
+                return (
+                  <div
+                    key={c.key}
+                    className="px-3 py-2 rounded-lg flex items-center justify-between gap-3"
+                    style={{ background: 'var(--bg-2)', border: '1px solid var(--border)' }}
+                  >
+                    <span className="text-xs font-semibold">{c.label}</span>
+                    <button
+                      type="button"
+                      onClick={() => toggleKpiCard(c.key)}
+                      className={`px-2.5 py-1 rounded-md text-[11px] font-bold ${
+                        hidden ? 'bg-rose-500/15 text-rose-400 border border-rose-500/30' : 'text-muted'
+                      }`}
+                      style={!hidden ? { background: 'var(--bg-card)', border: '1px solid var(--border)' } : undefined}
+                    >
+                      {hidden ? 'Card Hidden' : 'Shown'}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={resetPrivacy}
+            className="text-xs font-semibold text-muted hover:text-primary flex items-center gap-1.5"
+          >
+            <RotateCcw className="w-3.5 h-3.5" /> Reset all privacy & visibility defaults
+          </button>
+        </div>
+      )}
+
+      {/* TAB 3: ACCOUNT & PROFILE */}
       {activeTab === 'general' && (
         <div className="space-y-4">
           <div
@@ -229,7 +359,7 @@ export const SettingsScreen = ({ onOpenEmailParser }) => {
         </div>
       )}
 
-      {/* TAB 3: GMAIL & EMAIL IMPORT */}
+      {/* TAB 4: GMAIL & EMAIL IMPORT */}
       {activeTab === 'import' && (
         <div className="space-y-3">
           <div
@@ -243,7 +373,7 @@ export const SettingsScreen = ({ onOpenEmailParser }) => {
               <div>
                 <h4 className="text-xs font-bold">Connect Gmail & Bank Receipt Parser</h4>
                 <p className="text-[11px] text-muted">
-                  Scan myBCA, Mandiri, BRI, BNI, GoPay, OVO & QRIS notifications directly via Google OAuth.
+                  Scan myBCA, Mandiri, BRI, BNI, GoPay, OVO, Bibit & QRIS notifications directly via Google OAuth.
                 </p>
               </div>
             </div>

@@ -11,6 +11,7 @@ import {
   orderBy
 } from 'firebase/firestore';
 import { db } from './firebase';
+import { inferBucketKind } from '../utils/templates';
 
 const userDoc = (uid) => doc(db, 'users', uid);
 const userCol = (uid, name) => collection(db, 'users', uid, name);
@@ -54,6 +55,7 @@ export const saveOnboardingBatch = async (uid, { profile, buckets, wallets, quic
       percentage: Number(b.percentage) || 0,
       color: b.color || '#10b981',
       icon: b.icon || 'Tag',
+      kind: inferBucketKind(b),
       sortOrder: idx
     });
   });
@@ -116,6 +118,7 @@ export const replaceUserBuckets = async (uid, existingBucketIds, newBuckets) => 
       percentage: Number(b.percentage) || 0,
       color: b.color || '#10b981',
       icon: b.icon || 'Tag',
+      kind: inferBucketKind(b),
       sortOrder: idx
     });
   });

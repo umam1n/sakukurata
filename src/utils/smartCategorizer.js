@@ -1,5 +1,7 @@
 // Smart Merchant-to-Bucket & Purpose-Wallet Auto-Classifier (Indonesian + English)
-// Disambiguates specific phrases (e.g. "gofood"/"grabfood" before "gojek"/"grab").
+// Disambiguates specific phrases (e.g. "gofood"/"grabfood" before "gojek"/"grab")
+// and distinguishes Saving/Investment contributions from Expenses.
+import { inferBucketKind } from './templates.js';
 
 export const SPENDING_INTENT_RULES = [
   {
@@ -161,15 +163,24 @@ export function autoAssignBucketAndWallet({
   const detected = detectSpendingIntent(merchant, rawText);
   const foodRule = SPENDING_INTENT_RULES[0]; // Food & Dining is the most frequent everyday expense
   const activeRule = detected?.rule || (defaultToFood ? foodRule : null);
+  const suggestedTxType = detected?.intent === 'savings' ? 'saving' : 'expense';
+
+  const preferredBucketPool =
+    suggestedTxType === 'saving'
+      ? buckets.filter((b) => inferBucketKind(b) === 'saving')
+      : buckets.filter((b) => inferBucketKind(b) === 'spending');
+  const candidateBuckets = preferredBucketPool.length > 0 ? preferredBucketPool : buckets;
 
   let matchedBucket = null;
   let matchedWallet = null;
   let walletMatchReason = '';
 
   if (activeRule) {
-    // 1. Find best matching Budget Bucket by alias priority
+    // 1. Find best matching Budget Bucket by alias priority (constrained by bucket kind first)
     for (const alias of activeRule.targetBucketAliases) {
-      const found = buckets.find((b) => (b.name || '').toLowerCase().includes(alias.toLowerCase()));
+      const found = candidateBuckets.find((b) =>
+        (b.name || '').toLowerCase().includes(alias.toLowerCase())
+      );
       if (found) {
         matchedBucket = found;
         break;
@@ -199,13 +210,16 @@ export function autoAssignBucketAndWallet({
     }
   }
 
+  const fallbackBucket = candidateBuckets[0] || buckets[0];
+
   return {
     intent: detected?.intent || (defaultToFood ? 'food' : null),
     intentLabel: detected?.label || (defaultToFood ? 'Food & Dining (Default)' : null),
+    suggestedTxType,
     isDefaultFallback: !detected && defaultToFood,
     matchedKeyword: detected?.matchedKeyword || null,
-    bucketId: matchedBucket?.id || buckets[0]?.id || '',
-    bucketName: matchedBucket?.name || buckets[0]?.name || '',
+    bucketId: matchedBucket?.id || fallbackBucket?.id || '',
+    bucketName: matchedBucket?.name || fallbackBucket?.name || '',
     walletId: matchedWallet?.id || wallets[0]?.id || '',
     walletName: matchedWallet?.name || wallets[0]?.name || '',
     walletMatchReason
